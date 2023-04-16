@@ -1,81 +1,88 @@
-﻿using System;
-using System.Net;
+﻿using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using System.Threading.Tasks;
 
-namespace ClientProgram
+namespace ClientProgram;
+
+internal class Program
 {
-    class Program
+    private static async Task Main(string[] args)
     {
-        static async Task Main(string[] args)
+        var serverIp = IPAddress.Loopback.ToString();
+        using var client = new TcpClient();
+        try
         {
-            var serverIP = IPAddress.Loopback.ToString();
-            using var client = new TcpClient();
-            try
+            await ConnectToServerAsync(client, serverIp);
+            Console.WriteLine("Server found.");
+            while (true)
             {
-                await ConnectToServerAsync(client, serverIP);
-
-                while (true)
+                if (Console.KeyAvailable)
                 {
                     var message = GetMessageFromUser();
                     await SendMessageAsync(client, message);
-
-                    var response = await ReceiveMessageAsync(client);
-                    DisplayServerResponse(response);
                 }
+
+                var response = await ReceiveMessageAsync(client);
+                if (!string.IsNullOrEmpty(response)) DisplayServerResponse(response);
+
+                // Add any other processing or tasks that need to be performed concurrently
+
+                await Task.Delay(100); // Add a small delay to avoid high CPU usage
             }
-            catch (Exception ex)
-            {
-                HandleException(ex);
-            }
-            finally
-            {
-                CloseConnection(client);
-            }
-
-            Console.ReadKey();
+        }
+        catch (Exception ex)
+        {
+            HandleException(ex);
+        }
+        finally
+        {
+            CloseConnection(client);
         }
 
-        static async Task ConnectToServerAsync(TcpClient client, string serverIP)
-        {
-            await client.ConnectAsync(serverIP, 29000);
-        }
+        Console.ReadKey();
+    }
 
-        static string GetMessageFromUser()
-        {
-            Console.Write("Enter a message to send to the server: ");
-            return Console.ReadLine();
-        }
+    private static async Task ConnectToServerAsync(TcpClient client, string serverIP)
+    {
+        await client.ConnectAsync(serverIP, 29000);
+    }
 
-        static async Task SendMessageAsync(TcpClient client, string message)
-        {
-            var data = Encoding.UTF8.GetBytes(message);
-            await client.GetStream().WriteAsync(data, 0, data.Length);
-        }
+    private static string GetMessageFromUser()
+    {
+        return Console.ReadLine();
+    }
 
-        static async Task<string> ReceiveMessageAsync(TcpClient client)
+    private static async Task SendMessageAsync(TcpClient client, string message)
+    {
+        var data = Encoding.UTF8.GetBytes(message);
+        await client.GetStream().WriteAsync(data, 0, data.Length);
+    }
+
+    private static async Task<string> ReceiveMessageAsync(TcpClient client)
+    {
+        var data = new byte[256];
+        var response = new StringBuilder();
+        if (client.GetStream().DataAvailable)
         {
-            var data = new byte[256];
-            var response = new StringBuilder();
             var bytes = await client.GetStream().ReadAsync(data, 0, data.Length);
-            response.Append(Encoding.ASCII.GetString(data, 0, bytes));
-            return response.ToString();
+            response.Append(Encoding.UTF8.GetString(data, 0, bytes));
         }
 
-        static void DisplayServerResponse(string response)
-        {
-            Console.WriteLine("Server response: " + response);
-        }
+        return response.ToString();
+    }
 
-        static void CloseConnection(TcpClient client)
-        {
-            client.Close();
-        }
+    private static void DisplayServerResponse(string response)
+    {
+        Console.WriteLine("Server response: " + response);
+    }
 
-        static void HandleException(Exception ex)
-        {
-            Console.WriteLine(ex.ToString());
-        }
+    private static void CloseConnection(TcpClient client)
+    {
+        client.Close();
+    }
+
+    private static void HandleException(Exception ex)
+    {
+        Console.WriteLine(ex.ToString());
     }
 }
