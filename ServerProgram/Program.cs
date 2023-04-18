@@ -1,28 +1,14 @@
 ﻿using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System;
 
 namespace ServerProgram;
 
-internal class Server
+internal class Program
 {
-    public delegate void MessageReceivedEventHandler(string message);
-
-    public static event MessageReceivedEventHandler MessageReceived;
-
-    public delegate void ClientConnectedEventHandler();
-
-    public static event ClientConnectedEventHandler ClientConnected;
-
-    public delegate void ClientDisconnectedEventHandler();
-
-    public static event ClientDisconnectedEventHandler ClientDisconnected;
-
-    private static Func<string>? _getInputFromUi;
-
-    private static async Task Main(Func<string>? getInputFromUI)
+    private static async Task Main()
     {
-        _getInputFromUi = getInputFromUI;
         try
         {
             var localAddr = IPAddress.Parse(IPAddress.Loopback.ToString());
@@ -30,41 +16,44 @@ internal class Server
             listener.ExclusiveAddressUse = true;
             listener.Start();
 
-            OnMessageReceived("Server started.");
+            Console.WriteLine("Server started.");
 
             while (true)
             {
                 var client = await listener.AcceptTcpClientAsync().ConfigureAwait(false);
-                OnClientConnected();
-
-                var cts = new CancellationTokenSource();
-
+                //var client = await listener.AcceptTcpClientAsync();
+                Console.WriteLine("Client connected.");
+                
+                CancellationTokenSource cts = new CancellationTokenSource();
+                
                 Task receive = null;
                 Task send = null;
 
                 try
                 {
-                    send = Task.Run(() => SendMessagesAsync(client, cts.Token, _getInputFromUi), cts.Token);
-
+                    send = Task.Run(() => SendMessagesAsync(client, cts.Token), cts.Token);
                     receive = Task.Run(() => ReceiveMessagesAsync(client, cts.Token), cts.Token);
-
+                    
                     await Task.WhenAny(send, receive);
                 }
                 catch (Exception ex)
                 {
-                    OnMessageReceived(ex.Message);
+                    Console.WriteLine(ex.Message + "ФЛЫВОЛДФЫОВ");
                 }
                 finally
                 {
+                    Console.WriteLine("сработал нахуй");
                     cts.Cancel();
-                    await Task.WhenAll(send, receive).ContinueWith(_ => CloseConnection(client));
+                    await Task.WhenAll(send, receive).ContinueWith(_ => client.Close());
                 }
             }
         }
         catch (Exception ex)
         {
-            OnMessageReceived(ex.HelpLink);
+            Console.WriteLine(ex.HelpLink);
         }
+
+        Console.ReadKey();
     }
 
     private static async Task ReceiveMessagesAsync(TcpClient client, CancellationToken cancellationToken)
@@ -76,18 +65,18 @@ internal class Server
             {
                 var bytesRead = await client.GetStream().ReadAsync(buffer, 0, buffer.Length, cancellationToken);
                 var message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                OnMessageReceived(message);
-
+                Console.WriteLine($"Received message: {message}");
+                
                 await Task.Delay(100);
             }
         }
         catch (OperationCanceledException)
         {
-            OnMessageReceived("Receive messages canceled.");
+            Console.WriteLine("Receive messages canceled.");
         }
         catch (Exception ex)
         {
-            OnMessageReceived(ex.Message);
+            Console.WriteLine(ex.Message + "БЕБРА");
         }
         finally
         {
@@ -95,17 +84,16 @@ internal class Server
         }
     }
 
-    private static async Task SendMessagesAsync(TcpClient client, CancellationToken cancellationToken,
-        Func<string>? getInput)
+    private static async Task SendMessagesAsync(TcpClient client, CancellationToken cancellationToken)
     {
         try
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                var message = getInput();
+                var message = await Console.In.ReadLineAsync();
                 var data = Encoding.UTF8.GetBytes(message);
                 await client.GetStream().WriteAsync(data, cancellationToken);
-
+                
                 await Task.Delay(100);
             }
         }
@@ -115,29 +103,13 @@ internal class Server
         }
         catch (Exception ex)
         {
-            Console.WriteLine(ex.Message);
+            Console.WriteLine(ex.Message + "МЕМРА");
         }
     }
-
 
     private static void CloseConnection(TcpClient client)
     {
         client.Close();
-        OnClientDisconnected();
-    }
-
-    private static void OnMessageReceived(string message)
-    {
-        MessageReceived?.Invoke(message);
-    }
-
-    private static void OnClientConnected()
-    {
-        ClientConnected?.Invoke();
-    }
-
-    private static void OnClientDisconnected()
-    {
-        ClientDisconnected?.Invoke();
+        Console.WriteLine("Client disconnected.");
     }
 }
