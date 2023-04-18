@@ -60,7 +60,7 @@ internal class Program
 
     private static async Task<string> ReceiveMessageAsync(TcpClient client)
     {
-        var data = new byte[256];
+        var data = new byte[1024];
         var response = new StringBuilder();
         if (client.GetStream().DataAvailable)
         {
@@ -73,7 +73,7 @@ internal class Program
 
     private static void DisplayServerResponse(string response)
     {
-        Console.WriteLine("Server response: " + response);
+        Console.WriteLine(response);
     }
 
     private static void CloseConnection(TcpClient client)

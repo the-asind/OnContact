@@ -1,7 +1,8 @@
-﻿using System.Net;
+﻿using System.Diagnostics;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using System;
+using static System.Threading.Tasks.Task;
 
 namespace ServerProgram;
 
@@ -12,8 +13,11 @@ internal class Program
         try
         {
             var localAddr = IPAddress.Parse(IPAddress.Loopback.ToString());
-            var listener = new TcpListener(localAddr, 29000);
-            listener.ExclusiveAddressUse = true;
+            // TODO: add free port finder
+            var listener = new TcpListener(localAddr, 29000)
+            {
+                ExclusiveAddressUse = true
+            };
             listener.Start();
 
             Console.WriteLine("Server started.");
@@ -21,30 +25,30 @@ internal class Program
             while (true)
             {
                 var client = await listener.AcceptTcpClientAsync().ConfigureAwait(false);
-                //var client = await listener.AcceptTcpClientAsync();
                 Console.WriteLine("Client connected.");
-                
-                CancellationTokenSource cts = new CancellationTokenSource();
-                
-                Task receive = null;
-                Task send = null;
+
+                var cts = new CancellationTokenSource();
+
+                Task? receive = null;
+                Task? send = null;
 
                 try
                 {
-                    send = Task.Run(() => SendMessagesAsync(client, cts.Token), cts.Token);
-                    receive = Task.Run(() => ReceiveMessagesAsync(client, cts.Token), cts.Token);
-                    
-                    await Task.WhenAny(send, receive);
+                    send = Run(() => SendMessagesAsync(client, cts.Token), cts.Token);
+                    receive = Run(() => ReceiveMessagesAsync(client, cts.Token), cts.Token);
+
+                    await WhenAny(send, receive);
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine(ex.Message + "ФЛЫВОЛДФЫОВ");
+                    Console.WriteLine(ex.Message);
                 }
                 finally
                 {
-                    Console.WriteLine("сработал нахуй");
                     cts.Cancel();
-                    await Task.WhenAll(send, receive).ContinueWith(_ => client.Close());
+                    Debug.Assert(send != null, nameof(send) + " != null");
+                    Debug.Assert(receive != null, nameof(receive) + " != null");
+                    await WhenAll(send, receive).ContinueWith(_ => client.Close());
                 }
             }
         }
@@ -66,8 +70,13 @@ internal class Program
                 var bytesRead = await client.GetStream().ReadAsync(buffer, 0, buffer.Length, cancellationToken);
                 var message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
                 Console.WriteLine($"Received message: {message}");
-                
-                await Task.Delay(100);
+
+                var answer = await GetAnswer(cancellationToken, message);
+                Debug.Assert(answer != null, nameof(answer) + " != null");
+                var data = Encoding.UTF8.GetBytes(answer);
+                await client.GetStream().WriteAsync(data, cancellationToken);
+
+                await Delay(100, cancellationToken);
             }
         }
         catch (OperationCanceledException)
@@ -76,12 +85,82 @@ internal class Program
         }
         catch (Exception ex)
         {
-            Console.WriteLine(ex.Message + "БЕБРА");
+            Console.WriteLine(ex.Message);
         }
         finally
         {
             CloseConnection(client);
         }
+    }
+
+    private static async Task<string?> GetAnswer(CancellationToken cancellationToken, string message)
+    {
+        string? answer = null;
+        if (message.EndsWith(".txt"))
+        {
+            if (File.Exists(message))
+            {
+                answer = await GetTxtContent(cancellationToken, message);
+            }
+            else
+            {
+                if (Directory.Exists(message))
+                {
+                    answer = GetListFiles(message);
+                }
+            }
+        }
+        else if (Directory.Exists(message))
+        {
+            answer = GetListFiles(message);
+        }
+        
+        if (answer is null)
+        {
+            Console.WriteLine($"send file or directory {message} does not exist");
+            answer = $"File or directory {message} does not exist";
+        }
+
+        return answer;
+    }
+
+    private static string? GetListFiles(string message)
+    {
+        var entries = GetAllDirectoryEntries(message);
+        StringBuilder answerBuilder = new StringBuilder();
+        foreach (string entry in entries)
+        {
+            answerBuilder.AppendLine(entry);
+        }
+
+        var answer = answerBuilder.ToString();
+        return answer;
+    }
+
+    private static async Task<string?> GetTxtContent(CancellationToken cancellationToken, string message)
+    {
+        var fileContents = await File.ReadAllTextAsync(message, cancellationToken);
+        Console.WriteLine($"send contents of {message}: {fileContents}");
+        var answer = $"Contents of {message}: {fileContents}";
+        return answer;
+    }
+
+    private static List<string> GetAllDirectoryEntries(string directoryPath)
+    {
+        var entries = new List<string>();
+
+        try
+        {
+            entries.AddRange(Directory.GetDirectories(directoryPath));
+            entries.AddRange(Directory.GetFiles(directoryPath));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error retrieving entries from directory {directoryPath}: {ex.Message}");
+            entries.Add($"Error retrieving entries from directory {directoryPath}: {ex.Message}");
+        }
+
+        return entries;
     }
 
     private static async Task SendMessagesAsync(TcpClient client, CancellationToken cancellationToken)
@@ -91,10 +170,11 @@ internal class Program
             while (!cancellationToken.IsCancellationRequested)
             {
                 var message = await Console.In.ReadLineAsync();
+                Debug.Assert(message != null, nameof(message) + " != null");
                 var data = Encoding.UTF8.GetBytes(message);
                 await client.GetStream().WriteAsync(data, cancellationToken);
-                
-                await Task.Delay(100);
+
+                await Delay(100, cancellationToken);
             }
         }
         catch (OperationCanceledException)
@@ -103,7 +183,7 @@ internal class Program
         }
         catch (Exception ex)
         {
-            Console.WriteLine(ex.Message + "МЕМРА");
+            Console.WriteLine(ex.Message);
         }
     }
 

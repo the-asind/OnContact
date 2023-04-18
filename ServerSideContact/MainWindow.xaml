@@ -7,6 +7,18 @@
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
     <Grid>
+        <TextBox HorizontalAlignment="Center" Margin="0,38,0,0" TextWrapping="Wrap" Text="TextBox" VerticalAlignment="Top" Width="730" Height="179"/>
+        <DataGrid d:ItemsSource="{d:SampleData ItemCount=5}" Margin="35,235,257,22">
+            <DataGrid.CellStyle>
+                <Style/>
+            </DataGrid.CellStyle>
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="User" MinWidth="250"/>
+                <DataGridTextColumn Header="Port" MinWidth="250"/>
+            </DataGrid.Columns>
+        </DataGrid>
+        <Button Content="Выключить сервер" HorizontalAlignment="Left" Margin="612,324,0,0" VerticalAlignment="Top" Height="38" Width="123" />
+        <Button Content="Включить сервер" HorizontalAlignment="Left" Margin="612,262,0,0" VerticalAlignment="Top" Height="38" Width="123" />
 
     </Grid>
 </Window>
