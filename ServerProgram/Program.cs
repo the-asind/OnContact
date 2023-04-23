@@ -13,14 +13,15 @@ internal static class Program
         try
         {
             var localAddr = IPAddress.Parse(IPAddress.Loopback.ToString());
+            var broadband = IPAddress.Parse("127.0.0.255");
             var listener = new TcpListener(localAddr, 29000)
             {
                 ExclusiveAddressUse = true
             };
             listener.Start();
-
+            
             Console.WriteLine("Server started.");
-
+            
             while (true)
             {
                 var client = await listener.AcceptTcpClientAsync().ConfigureAwait(false);
@@ -42,7 +43,6 @@ internal static class Program
         var cts = new CancellationTokenSource();
 
         Task? receive = null;
-        Task? send = null;
 
         try
         {
@@ -70,10 +70,10 @@ internal static class Program
             };
             newListener.Start();
 
-            send = Run(() => SendMessagesAsync(client, cts.Token), cts.Token); //TODO: REDUNDANT
+            
             receive = Run(() => ReceiveMessagesAsync(client, newPort, cts.Token), cts.Token);
 
-            await WhenAny(send, receive);
+            await WhenAll(receive);
 
             newListener.Stop();
         }
@@ -84,9 +84,7 @@ internal static class Program
         finally
         {
             cts.Cancel();
-            if (send is null || receive is null)
-                client.Close();
-            await WhenAll(send, receive).ContinueWith(_ => client.Close());
+            client.Close();
         }
     }
 
@@ -131,10 +129,9 @@ internal static class Program
                 var answer = await cancellationToken.GetAnswer(message);
                 Debug.Assert(answer != null, nameof(answer) + " != null");
                 var data = Encoding.UTF8.GetBytes(answer);
-                await Delay(400, cancellationToken);
                 await client.GetStream().WriteAsync(data, cancellationToken);
 
-                await Delay(100, cancellationToken);
+                await Delay(10, cancellationToken);
             }
         }
         catch (OperationCanceledException)
@@ -197,19 +194,40 @@ internal static class Program
         using var streamReader = new StreamReader(fileStream);
         var buffer = new char[4096];
         var stringBuilder = new StringBuilder();
-    
+        var chunkSize = 1024 * 1024 / 4; // 0.25MB chunk size
+        
+        long fileSize = streamReader.BaseStream.Length;
+        if (fileSize > chunkSize)
+        {
+            var answer = "!Contents of {message}:\n\n";
+            return answer;
+        }
         while (!streamReader.EndOfStream)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var readCount = await streamReader.ReadAsync(buffer, 0, buffer.Length);
             stringBuilder.Append(buffer, 0, readCount);
+
+            if (stringBuilder.Length >= chunkSize)
+            {
+                var chunk = stringBuilder.ToString(0, chunkSize);
+                stringBuilder.Remove(0, chunkSize);
+
+                Console.WriteLine($"sending partial contents of {message}");
+                return chunk;
+            }
         }
 
-        var fileContents = stringBuilder.ToString();
-        Console.WriteLine($"send contents of {message}: {fileContents}");
-        var answer = $"!Contents of {message}: \n\n{fileContents}";
-        return answer;
+        if (stringBuilder.Length > 0)
+        {
+            var answer = $"!Contents of {message}:\n\n{stringBuilder}";
+            Console.WriteLine($"sending contents of {message}");
+            return answer;
+        }
+
+        return null;
     }
+
 
 
 
