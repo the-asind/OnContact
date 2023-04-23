@@ -5,16 +5,146 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ClientSideContact"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="OnContact!" 
+        Height="700" 
+        Width="400" 
+        WindowStartupLocation="CenterScreen"
+        Background="#ccf0ef">
     <Grid>
-        <StackPanel Margin="3">
-            
-            <TextBox Name="MessageTextBox" Height="120" IsEnabled="True"></TextBox>
-            <TextBox Name="AnswerTextBox" Height="120" IsReadOnly="True"></TextBox>
-            
-            <Button Height="34" Name="DisconnectButton" Click="DisconnectButton_Click" Content="Disconnect"></Button>
-            <Button Height="34" Name="SendButton" Click="SendButton_Click" Content="Send"></Button>
-            <Button Height="34" Name="ConnectButton" Click="ConnectButton_Click" Content="Connect"></Button>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="40"/>
+            <RowDefinition Height="40"/>
+            <RowDefinition Height="50"/>
+            <RowDefinition Height="310"/>
+            <RowDefinition Height="60"/>
+            <RowDefinition Height="40"/>
+            <RowDefinition Height="80"/>
+        </Grid.RowDefinitions>
+        <TextBox x:Name="MessageTextBox"
+                 HorizontalAlignment="Center"
+                 Grid.Row="0"
+                 Height="30"
+                 Width="360"
+                 FontFamily="Bahnschrift"
+                 FontSize="14"
+                 Padding="6"
+                 Text="D:\"/>
+        <StackPanel Orientation="Horizontal"
+                    Grid.Row="1"  
+                    VerticalAlignment="Top"
+                    HorizontalAlignment="Center">
+            <Button x:Name="SelectDirectory"
+                    Height="35"
+                    HorizontalAlignment="Left"
+                    Width="170"
+                    Margin="10,0,0,0"
+                    Content="Выбрать директорию"
+                    FontFamily="Bahnschrift"
+                    FontSize="14"
+                    Padding="6"
+                    Background="White"
+                    BorderBrush="#dfe0e0"
+                    BorderThickness="1.5"
+                    Click="SelectFolder_Click"/>
+            <Button x:Name="SelectFile"
+                    HorizontalAlignment="Right"
+                    Height="35"
+                    Width="150"
+                    Margin="10,0,0,0"
+                    Content="Выбрать файл"
+                    FontFamily="Bahnschrift"
+                    FontSize="14"
+                    Padding="6"
+                    Background="White"
+                    BorderBrush="#dfe0e0"
+                    BorderThickness="1.5"
+                    Click="SelectFile_OnClick"/>
         </StackPanel>
+        <ListBox Name="Answer" 
+                Grid.Row="3"
+                
+                 Width="360"
+                 ScrollViewer.VerticalScrollBarVisibility="Visible"
+                SelectionChanged="Answer_SelectionChanged">
+                </ListBox>
+        <StackPanel Orientation="Horizontal"
+                    Grid.Row="4" HorizontalAlignment="Center">
+        <TextBlock
+                   TextAlignment="Left"
+                   VerticalAlignment="Center"
+                   Text="IP:" 
+                   Height="36"
+                   FontFamily="Bahnschrift"
+                   Width="40"
+                   FontSize="20"
+                   Foreground="DarkCyan"
+                   Padding="6"></TextBlock>
+        
+        <TextBox x:Name="IpTextBox"
+                 Height="30"
+                 Width="260"
+                 FontFamily="Bahnschrift"
+                 FontSize="14"
+                 Padding="6"
+                 Text="127.255.255.254"/>
+        </StackPanel>
+        <Button x:Name="SendButton"
+                VerticalAlignment="Top"
+                Grid.Row="2"
+                Foreground="DarkCyan"
+                Height="35"
+                Width="175"
+                Margin="10,0,0,0"
+                Content="Передать серверу"
+                FontFamily="Bahnschrift"
+                FontSize="16"
+                Padding="6"
+                Background="White"
+                BorderBrush="#dfe0e0"
+                BorderThickness="1.5"
+                Click="SendButton_Click"/>
+        
+        <StackPanel Orientation="Horizontal"
+                    Grid.Row="5"
+                    HorizontalAlignment="Center">
+            
+            <Button x:Name="ConnectButton"
+                    Height="35"
+                    Width="150"
+                    Margin="10,0,0,0"
+                    Content="Подключиться"
+                    FontFamily="Bahnschrift"
+                    FontSize="14"
+                    Padding="6"
+                    Background="White"
+                    BorderBrush="#dfe0e0"
+                    BorderThickness="1.5"
+                    Click="ConnectButton_Click"/>
+            <Button x:Name="DisconnectButton"
+                    Height="35"
+                    Width="150"
+                    Margin="10,0,0,0"
+                    Content="Отключиться"
+                    FontFamily="Bahnschrift"
+                    FontSize="14"
+                    Padding="6"
+                    Background="White"
+                    BorderBrush="#dfe0e0"
+                    BorderThickness="1.5"
+                    Click="DisconnectButton_Click"/>
+        </StackPanel>
+        <Button x:Name="Exit"
+                Grid.Row="6"
+                Height="35"
+                Width="260"
+                Content="Выйти"
+                FontFamily="Bahnschrift"
+                FontSize="14"
+                Padding="6"
+                Background="White"
+                BorderBrush="#dfe0e0"
+                BorderThickness="1.5"
+                Click="Exit_OnClick"/>
     </Grid>
 </Window>
+

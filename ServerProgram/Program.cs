@@ -169,11 +169,11 @@ internal static class Program
         if (answer is null)
         {
             Console.WriteLine($"send file or directory {message} does not exist");
-            answer = $"File or directory {message} does not exist";
+            answer = $"!File or directory {message} does not exist";
         }
 
         if (answer == "")
-            answer = "This directory is empty.";
+            answer = "!This directory is empty.";
 
         return answer;
     }
@@ -187,7 +187,7 @@ internal static class Program
             answerBuilder.AppendLine(entry);
         }
 
-        var answer = answerBuilder.ToString();
+        var answer = "!"+answerBuilder;
         return answer;
     }
 
@@ -195,7 +195,7 @@ internal static class Program
     {
         var fileContents = await File.ReadAllTextAsync(message, cancellationToken);
         Console.WriteLine($"send contents of {message}: {fileContents}");
-        var answer = $"Contents of {message}: {fileContents}";
+        var answer = $"!Contents of {message}: \n\n{fileContents}";
         return answer;
     }
 
@@ -211,7 +211,7 @@ internal static class Program
         catch (Exception ex)
         {
             Console.WriteLine($"Error retrieving entries from directory {directoryPath}: {ex.Message}");
-            entries.Add($"Error retrieving entries from directory {directoryPath}: {ex.Message}");
+            entries.Add($"!Error retrieving entries from directory {directoryPath}: {ex.Message}");
         }
 
         return entries;
