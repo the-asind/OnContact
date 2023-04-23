@@ -152,7 +152,7 @@ internal static class Program
             CloseConnection(client);
         }
     }
-    //TODO: добавить кусочную отправку данных
+    
     private static async Task<string?> GetAnswer(this CancellationToken cancellationToken, string message)
     {
         string? answer = null;
@@ -193,11 +193,25 @@ internal static class Program
 
     private static async Task<string?> GetTxtContent(CancellationToken cancellationToken, string message)
     {
-        var fileContents = await File.ReadAllTextAsync(message, cancellationToken);
+        await using var fileStream = new FileStream(message, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
+        using var streamReader = new StreamReader(fileStream);
+        var buffer = new char[4096];
+        var stringBuilder = new StringBuilder();
+    
+        while (!streamReader.EndOfStream)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var readCount = await streamReader.ReadAsync(buffer, 0, buffer.Length);
+            stringBuilder.Append(buffer, 0, readCount);
+        }
+
+        var fileContents = stringBuilder.ToString();
         Console.WriteLine($"send contents of {message}: {fileContents}");
         var answer = $"!Contents of {message}: \n\n{fileContents}";
         return answer;
     }
+
+
 
     private static List<string> GetAllDirectoryEntries(string directoryPath)
     {

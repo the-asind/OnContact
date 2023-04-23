@@ -62,6 +62,10 @@ public partial class MainWindow : Window
             if (!string.IsNullOrEmpty(response)) 
             {
                 ParseServerResponse("Server found. " + response);
+                
+                //take last five symbols from response into integer
+                int port = Convert.ToInt32(response.Substring(response.Length - 3, 3));
+                Title = $"On Contact! Client_{port}";
                 SendButton.IsEnabled = true;
                 ConnectButton.IsEnabled = false;
                 DisconnectButton.IsEnabled = true;

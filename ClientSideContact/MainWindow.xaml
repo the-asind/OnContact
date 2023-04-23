@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ClientSideContact"
         mc:Ignorable="d"
-        Title="OnContact!" 
+        Title="On Contact!" 
         Height="700" 
         Width="400" 
         WindowStartupLocation="CenterScreen"
@@ -62,11 +62,22 @@
         </StackPanel>
         <ListBox Name="Answer" 
                 Grid.Row="3"
-                
+                MaxWidth="360"
                  Width="360"
                  ScrollViewer.VerticalScrollBarVisibility="Visible"
-                SelectionChanged="Answer_SelectionChanged">
-                </ListBox>
+                SelectionChanged="Answer_SelectionChanged"
+                ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                                <StackPanel/>
+                        </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemTemplate>
+                        <DataTemplate>
+                                <TextBlock Text="{Binding}" TextWrapping="Wrap"/>
+                        </DataTemplate>
+                </ListBox.ItemTemplate>
+        </ListBox>
         <StackPanel Orientation="Horizontal"
                     Grid.Row="4" HorizontalAlignment="Center">
         <TextBlock
