@@ -9,14 +9,14 @@ using Microsoft.WindowsAPICodePack.Dialogs;
 
 namespace ClientSideContact;
 
-public partial class MainWindow : Window
+public partial class MainWindow
 {
-    private readonly Client client;
+    private readonly Client _client;
     
     public MainWindow()
     {
         InitializeComponent();
-        client = new Client();
+        _client = new Client();
         SendButton.IsEnabled = false;
         ConnectButton.IsEnabled = true;
         DisconnectButton.IsEnabled = false;
@@ -27,11 +27,11 @@ public partial class MainWindow : Window
     {
         try
         {
-            await client.ConnectAsync(IPAddress.Loopback.ToString());
-            var response = await client.ReceiveMessageAsync();
+            await _client.ConnectAsync(IPAddress.Loopback.ToString());
+            var response = await _client.ReceiveMessageAsync();
             if (!string.IsNullOrEmpty(response))
             {
-                ParseServerResponseAsync("Server found. " + response);
+                await ParseServerResponseAsync("Server found. " + response);
 
                 //take last five symbols from response into integer
                 var port = Convert.ToInt32(response.Substring(response.Length - 3, 3));
@@ -42,12 +42,13 @@ public partial class MainWindow : Window
                 MessageTextBox.IsEnabled = true;
             }
 
+            IpTextBox.IsReadOnly = true;
             await HandleServerResponseAsync();
         }
         catch (Exception ex)
         {
             Client.HandleException(ex);
-            ParseServerResponseAsync(ex.Message);
+            await ParseServerResponseAsync(ex.Message);
         }
     }
     
@@ -57,14 +58,24 @@ public partial class MainWindow : Window
         {
             while (true)
             {
-                var response = await client.ReceiveMessageAsync();
-                if (!string.IsNullOrEmpty(response)) ParseServerResponseAsync(response);
+                var response = await _client.ReceiveMessageAsync();
+                if (!string.IsNullOrEmpty(response))
+                    if (response.Substring(response.Length - 9, 9) == "EndOfFile")
+                    {
+                        response = response.Remove(response.Length - 9, 9);
+                        await ParseServerResponseAsync(response);
+                        SendButton.IsEnabled = true;
+                    }
+                    else
+                    {
+                        await ParseServerResponseAsync(response);
+                    }
             }
         }
         catch (Exception ex)
         {
             Client.HandleException(ex);
-            ParseServerResponseAsync("Server unavailable.");
+            await ParseServerResponseAsync("Server unavailable.");
         }
         finally
         {
@@ -76,11 +87,15 @@ public partial class MainWindow : Window
     {
         try
         {
-            await client.SendMessageAsync(MessageTextBox.Text);
+            await _client.SendMessageAsync(MessageTextBox.Text);
         }
         catch (Exception ex)
         {
             Client.HandleException(ex);
+        }
+        finally
+        {
+            SendButton.IsEnabled = false;
         }
     }
 
@@ -111,16 +126,17 @@ public partial class MainWindow : Window
     private void Disconnect()
     {
         Title = "On Contact!";
-        client.CloseConnection();
+        _client.CloseConnection();
         ParseServerResponseAsync("Server disconnected.");
         SendButton.IsEnabled = false;
         ConnectButton.IsEnabled = true;
         DisconnectButton.IsEnabled = false;
+        IpTextBox.IsReadOnly = false;
     }
 
     private void Exit_OnClick(object sender, RoutedEventArgs e)
     {
-        client.CloseConnection();
+        _client.CloseConnection();
         Application.Current.Shutdown();
         Close();
     }

@@ -42,8 +42,6 @@ internal static class Program
     {
         var cts = new CancellationTokenSource();
 
-        Task? receive = null;
-
         try
         {
             int newPort;
@@ -71,7 +69,7 @@ internal static class Program
             newListener.Start();
 
             
-            receive = Run(() => ReceiveMessagesAsync(client, newPort, cts.Token), cts.Token);
+            var receive = Run(() => ReceiveMessagesAsync(client, newPort, cts.Token), cts.Token);
 
             await WhenAll(receive);
 
@@ -126,10 +124,7 @@ internal static class Program
                 Console.Write($"client_{localPort}: ");
                 Console.WriteLine($"Received message: {message}");
 
-                var answer = await cancellationToken.GetAnswer(message);
-                Debug.Assert(answer != null, nameof(answer) + " != null");
-                var data = Encoding.UTF8.GetBytes(answer);
-                await client.GetStream().WriteAsync(data, cancellationToken);
+                _ = Run(() => SendAnswer(cancellationToken, message, client), cancellationToken);
 
                 await Delay(10, cancellationToken);
             }
@@ -150,13 +145,16 @@ internal static class Program
         }
     }
     
-    private static async Task<string?> GetAnswer(this CancellationToken cancellationToken, string message)
+    private static async Task SendAnswer(this CancellationToken cancellationToken, string message, TcpClient client)
     {
         string? answer = null;
         if (message.EndsWith(".txt"))
         {
             if (File.Exists(message))
-                answer = await GetTxtContent(cancellationToken, message);
+            {
+                _ = Run(() => GetTxtContent(cancellationToken, message, client), cancellationToken);
+                return;
+            }
             else if (Directory.Exists(message)) 
                 answer = GetListFiles(message);
         }
@@ -172,7 +170,15 @@ internal static class Program
         if (answer == "")
             answer = "!This directory is empty.";
 
-        return answer;
+        await SendAsync(cancellationToken, client, answer);
+        await SendAsync(cancellationToken, client, "EndOfFile");
+    }
+
+    private static async Task SendAsync(CancellationToken cancellationToken, TcpClient client, string answer)
+    {
+        Debug.Assert(answer != null, nameof(answer) + " != null");
+        var data = Encoding.UTF8.GetBytes(answer);
+        await client.GetStream().WriteAsync(data, cancellationToken);
     }
 
     private static string GetListFiles(string message)
@@ -188,44 +194,45 @@ internal static class Program
         return answer;
     }
 
-    private static async Task<string?> GetTxtContent(CancellationToken cancellationToken, string message)
+    private static async Task GetTxtContent(CancellationToken cancellationToken, string message, TcpClient client)
     {
         await using var fileStream = new FileStream(message, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
         using var streamReader = new StreamReader(fileStream);
-        var buffer = new char[4096];
+        var buffer = new char[65536];
         var stringBuilder = new StringBuilder();
-        var chunkSize = 1024 * 1024 / 4; // 0.25MB chunk size
+        var chunkSize = 1024 * 1024; // chunk size is 1MB
         
         long fileSize = streamReader.BaseStream.Length;
         if (fileSize > chunkSize)
         {
-            var answer = "!Contents of {message}:\n\n";
-            return answer;
+            var answer = $"!Contents of {message}:\n\n";
+            await SendAsync(cancellationToken, client, answer);
         }
         while (!streamReader.EndOfStream)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            //todo: тут в асинке он считывает весь файл а потом обрывает его грязно и с ошибками, исправить
             var readCount = await streamReader.ReadAsync(buffer, 0, buffer.Length);
             stringBuilder.Append(buffer, 0, readCount);
 
-            if (stringBuilder.Length >= chunkSize)
+            if (stringBuilder.Length >= chunkSize) // Если длина строки больше длины буфера 
             {
                 var chunk = stringBuilder.ToString(0, chunkSize);
                 stringBuilder.Remove(0, chunkSize);
-
-                Console.WriteLine($"sending partial contents of {message}");
-                return chunk;
+                
+                await SendAsync(cancellationToken, client, chunk);
             }
         }
 
-        if (stringBuilder.Length > 0)
+        if (fileSize < chunkSize)
         {
             var answer = $"!Contents of {message}:\n\n{stringBuilder}";
             Console.WriteLine($"sending contents of {message}");
-            return answer;
+            await SendAsync(cancellationToken, client, answer);
         }
-
-        return null;
+        
+        Console.WriteLine("EndOfFile");
+        await SendAsync(cancellationToken, client, $"EndOfFile");
     }
 
 
