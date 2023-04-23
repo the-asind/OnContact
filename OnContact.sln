@@ -12,7 +12,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServerProgram", "ServerProg
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Server", "Server\Server.csproj", "{12E130F2-9EA8-466E-A705-958EAABD6747}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Client", "Client\Client.csproj", "{7D734F76-82D7-4AED-8E04-A25D0A45F221}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FreeClient", "FreeClient\FreeClient.csproj", "{7D734F76-82D7-4AED-8E04-A25D0A45F221}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

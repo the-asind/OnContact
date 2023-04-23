@@ -24,7 +24,7 @@ internal static class Program
             while (true)
             {
                 var client = await listener.AcceptTcpClientAsync().ConfigureAwait(false);
-                Console.WriteLine("Client connected.");
+                Console.WriteLine("FreeClient connected.");
 
                 _ = HandleClientAsync(client);
             }
@@ -120,7 +120,7 @@ internal static class Program
     {
         try
         {
-            var buffer = new byte[client.Client.SendBufferSize];
+            var buffer = new byte[1024];
             while (!cancellationToken.IsCancellationRequested)
             {
                 var bytesRead = await client.GetStream().ReadAsync(buffer, cancellationToken);
@@ -131,6 +131,7 @@ internal static class Program
                 var answer = await cancellationToken.GetAnswer(message);
                 Debug.Assert(answer != null, nameof(answer) + " != null");
                 var data = Encoding.UTF8.GetBytes(answer);
+                await Delay(400, cancellationToken);
                 await client.GetStream().WriteAsync(data, cancellationToken);
 
                 await Delay(100, cancellationToken);
@@ -151,7 +152,7 @@ internal static class Program
             CloseConnection(client);
         }
     }
-
+    //TODO: добавить кусочную отправку данных
     private static async Task<string?> GetAnswer(this CancellationToken cancellationToken, string message)
     {
         string? answer = null;
@@ -243,6 +244,6 @@ internal static class Program
     private static void CloseConnection(TcpClient client)
     {
         client.Close();
-        Console.WriteLine("Client disconnected.");
+        Console.WriteLine("FreeClient disconnected.");
     }
 }

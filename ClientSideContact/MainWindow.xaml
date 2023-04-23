@@ -7,6 +7,14 @@
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
     <Grid>
-
+        <StackPanel Margin="3">
+            
+            <TextBox Name="MessageTextBox" Height="120" IsEnabled="True"></TextBox>
+            <TextBox Name="AnswerTextBox" Height="120" IsReadOnly="True"></TextBox>
+            
+            <Button Height="34" Name="DisconnectButton" Click="DisconnectButton_Click" Content="Disconnect"></Button>
+            <Button Height="34" Name="SendButton" Click="SendButton_Click" Content="Send"></Button>
+            <Button Height="34" Name="ConnectButton" Click="ConnectButton_Click" Content="Connect"></Button>
+        </StackPanel>
     </Grid>
 </Window>

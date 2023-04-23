@@ -25,8 +25,6 @@ internal class Program
                 var response = await ReceiveMessageAsync(client);
                 if (!string.IsNullOrEmpty(response)) DisplayServerResponse(response);
 
-                // Add any other processing or tasks that need to be performed concurrently
-
                 await Task.Delay(100); // Add a small delay to avoid high CPU usage
             }
         }

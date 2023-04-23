@@ -1,28 +1,76 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Net;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using FreeClient;
 
-namespace ClientSideContact
+namespace ClientSideContact;
+
+/// <summary>
+///     Interaction logic for MainWindow.xaml
+/// </summary>
+public partial class MainWindow : Window
 {
-    /// <summary>
-    /// Interaction logic for MainWindow.xaml
-    /// </summary>
-    public partial class MainWindow : Window
+    private Client client;
+
+    public MainWindow()
     {
-        public MainWindow()
+        InitializeComponent();
+        client = new FreeClient.Client();
+        SendButton.IsEnabled = false;
+        ConnectButton.IsEnabled = true;
+        DisconnectButton.IsEnabled = false;
+        MessageTextBox.IsEnabled = false;
+    }
+
+    private async void ConnectButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
         {
-            InitializeComponent();
+            await client.ConnectAsync(IPAddress.Loopback.ToString());
+            var response = await client.ReceiveMessageAsync();
+            if (!string.IsNullOrEmpty(response)) 
+            {
+                ParseServerResponse("Server found. " + response);
+                SendButton.IsEnabled = true;
+                ConnectButton.IsEnabled = false;
+                DisconnectButton.IsEnabled = true;
+                MessageTextBox.IsEnabled = true;
+            }
         }
+        catch (Exception ex)
+        {
+            Client.HandleException(ex);
+        }
+    }
+
+    private async void SendButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            await client.SendMessageAsync(MessageTextBox.Text);
+            var response = await client.ReceiveMessageAsync();
+            if (!string.IsNullOrEmpty(response)) 
+            {
+                ParseServerResponse(response);
+            }
+        }
+        catch (Exception ex)
+        {
+            Client.HandleException(ex);
+        }
+    }
+    
+    private void ParseServerResponse(string response)
+    {
+        AnswerTextBox.Text = response;
+    }
+
+    private void DisconnectButton_Click(object sender, RoutedEventArgs e)
+    {
+        client.CloseConnection();
+        ParseServerResponse("Server disconnected.");
+        SendButton.IsEnabled = false;
+        ConnectButton.IsEnabled = true;
+        DisconnectButton.IsEnabled = false;
     }
 }
