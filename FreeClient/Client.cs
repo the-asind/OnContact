@@ -5,18 +5,23 @@ namespace FreeClient;
 
 public class Client
 {
-    private TcpClient client;
+    private TcpClient _client;
 
-    public async Task ConnectAsync(string serverIP)
+    public Client(TcpClient client)
     {
-        client = new TcpClient();
-        await client.ConnectAsync(serverIP, 29000);
+        _client = client;
+    }
+
+    public async Task ConnectAsync(string serverIp)
+    {
+        _client = new TcpClient();
+        await _client.ConnectAsync(serverIp, 29000);
     }
 
     public async Task SendMessageAsync(string message)
     {
         var data = Encoding.UTF8.GetBytes(message);
-        await client.GetStream().WriteAsync(data, 0, data.Length);
+        await _client.GetStream().WriteAsync(data);
     }
 
     public async Task<string> ReceiveMessageAsync()
@@ -25,21 +30,22 @@ public class Client
         var response = new StringBuilder();
         while (true)
         {
-            if (client.GetStream().DataAvailable)
+            if (_client.GetStream().DataAvailable)
             {
-                var bytes = await client.GetStream().ReadAsync(data, 0, data.Length);
+                var bytes = await _client.GetStream().ReadAsync(data);
                 response.Append(Encoding.UTF8.GetString(data, 0, bytes));
                 break;
             }
-            await Task.Delay(100); // Wait for 100ms before checking for data again
+
+            await Task.Delay(1); // Wait for 100ms before checking for data again
         }
+
         return response.ToString();
     }
 
-
     public void CloseConnection()
     {
-        client.Close();
+        _client.Close();
     }
 
     public static void HandleException(Exception ex)

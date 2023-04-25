@@ -3,7 +3,6 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:ClientSideContact"
         mc:Ignorable="d"
         Title="On Contact!" 
         Height="700" 
@@ -60,8 +59,8 @@
                     BorderThickness="1.5"
                     Click="SelectFile_OnClick"/>
         </StackPanel>
-        <ListBox Name="Answer" 
-                 ScrollViewer.CanContentScroll="True"
+        <ListBox Name="Answer"
+                 ScrollViewer.CanContentScroll="False"
                  Grid.Row="3"        
                  MaxWidth="360"
                  Width="360"
@@ -69,7 +68,8 @@
                  MaxHeight="300"
                  ScrollViewer.VerticalScrollBarVisibility="Auto"
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                 SelectionChanged="Answer_SelectionChanged"><!-- VirtualizingStackPanel.IsVirtualizing="False" -->
+                 SelectionChanged="Answer_SelectionChanged">
+                
                 <ListBox.ItemTemplate>
                         <DataTemplate>
                                 <TextBlock Text="{Binding}" TextWrapping="Wrap"/>
@@ -87,8 +87,8 @@
                    Width="40"
                    FontSize="20"
                    Foreground="DarkCyan"
-                   Padding="6"></TextBlock>
-        
+                   Padding="6" />
+
         <TextBox x:Name="IpTextBox"
                  Height="30"
                  Width="260"

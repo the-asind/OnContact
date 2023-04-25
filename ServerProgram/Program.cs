@@ -19,9 +19,9 @@ internal static class Program
                 ExclusiveAddressUse = true
             };
             listener.Start();
-            
+
             Console.WriteLine("Server started.");
-            
+
             while (true)
             {
                 var client = await listener.AcceptTcpClientAsync().ConfigureAwait(false);
@@ -55,7 +55,7 @@ internal static class Program
                 client.Close();
                 return;
             }
-            
+
             var message = $"Redirected to port {newPort}";
 
             // Отправляем новый номер порта клиенту
@@ -68,7 +68,7 @@ internal static class Program
             };
             newListener.Start();
 
-            
+
             var receive = Run(() => ReceiveMessagesAsync(client, newPort, cts.Token), cts.Token);
 
             await WhenAll(receive);
@@ -144,7 +144,7 @@ internal static class Program
             CloseConnection(client);
         }
     }
-    
+
     private static async Task SendAnswer(this CancellationToken cancellationToken, string message, TcpClient client)
     {
         string? answer = null;
@@ -155,15 +155,16 @@ internal static class Program
                 _ = Run(() => GetTxtContent(cancellationToken, message, client), cancellationToken);
                 return;
             }
-            else if (Directory.Exists(message)) 
+            else if (Directory.Exists(message))
                 answer = GetListFiles(message);
         }
-        else if (Directory.Exists(message)) 
+        else if (Directory.Exists(message))
             answer = GetListFiles(message);
 
         if (answer is null)
         {
-            Console.WriteLine($"send txtfile or directory {message} does not exist"); //todo: maybe implement not only txt files
+            Console.WriteLine(
+                $"send txtfile or directory {message} does not exist"); //todo: maybe implement not only txt files
             answer = $"! TxtFile or directory {message} does not exist";
         }
 
@@ -178,7 +179,13 @@ internal static class Program
     {
         Debug.Assert(answer != null, nameof(answer) + " != null");
         var data = Encoding.UTF8.GetBytes(answer);
-        await client.GetStream().WriteAsync(data, cancellationToken);
+        var offset = 0;
+        while (offset < data.Length)
+        {
+            var bytesToSend = Math.Min(1024, data.Length - offset);
+            await client.GetStream().WriteAsync(data.AsMemory(offset, bytesToSend), cancellationToken);
+            offset += bytesToSend;
+        }
     }
 
     private static string GetListFiles(string message)
@@ -190,37 +197,29 @@ internal static class Program
             answerBuilder.AppendLine(entry);
         }
 
-        var answer = "!"+answerBuilder;
+        var answer = "!" + answerBuilder;
         return answer;
     }
 
     private static async Task GetTxtContent(CancellationToken cancellationToken, string message, TcpClient client)
     {
-        await using var fileStream = new FileStream(message, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
-        using var streamReader = new StreamReader(fileStream);
-    
-        var buffer = new char[1024]; // chunk size is 1MB
-        var bytesRead = 0;
-
-        var fileSize = streamReader.BaseStream.Length;
-        if (fileSize > buffer.Length)
+        await SendAsync(cancellationToken, client, $"!TxtContent of {message}: ");
+        await using (var fileStream = new FileStream(message, FileMode.Open, FileAccess.Read))
         {
-            var answer = $"!Txt Contents of {message}:\n\n";
-            await SendAsync(cancellationToken, client, answer);
+            var buffer = new byte[1024]; // read 1KB at a time
+            var bytesRead = 0;
+            while ((bytesRead = await fileStream.ReadAsync(buffer, cancellationToken)) > 0)
+            {
+                var chunk = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                Console.WriteLine($"Sending chunk of {message}: {chunk}");
+                await SendAsync(cancellationToken, client, chunk);
+            }
         }
 
-        while ((bytesRead = await streamReader.ReadAsync(buffer, 0, buffer.Length)) > 0)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var chunk = new string(buffer, 0, bytesRead);
-            await SendAsync(cancellationToken, client, chunk);
-        }
-
-        Console.WriteLine("EndOfFile");
-        await SendAsync(cancellationToken, client, $"EndOfFile");
+        // after sending whole file send EndOfFile
+        await SendAsync(cancellationToken, client, "EndOfFile");
     }
-    
+
     private static List<string> GetAllDirectoryEntries(string directoryPath)
     {
         var entries = new List<string>();

@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Net;
+using System.Net.Sockets;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -12,12 +14,12 @@ namespace ClientSideContact;
 public partial class MainWindow
 {
     private readonly Client _client;
-    private bool _isTxtFile = false;
-    
+    private bool _isTxtFile;
+
     public MainWindow()
     {
         InitializeComponent();
-        _client = new Client();
+        _client = new Client(new TcpClient());
         SendButton.IsEnabled = false;
         ConnectButton.IsEnabled = true;
         DisconnectButton.IsEnabled = false;
@@ -52,7 +54,7 @@ public partial class MainWindow
             await ParseServerResponseAsync(ex.Message);
         }
     }
-    
+
     private async Task HandleServerResponseAsync()
     {
         try
@@ -61,7 +63,7 @@ public partial class MainWindow
             {
                 var response = await _client.ReceiveMessageAsync();
                 if (!string.IsNullOrEmpty(response))
-                    if (response.Substring(0, 4) == "!Txt")
+                    if (response[..4] == "!Txt")
                     {
                         response = response.Remove(0, 4);
                         _isTxtFile = true;
@@ -79,6 +81,8 @@ public partial class MainWindow
                 {
                     await ParseServerResponseAsync(response);
                 }
+
+                await Task.Delay(1); // Wait for 100ms before checking for data again
             }
         }
         catch (Exception ex)
@@ -91,7 +95,7 @@ public partial class MainWindow
             Disconnect();
         }
     }
-    
+
     private async void SendButton_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -110,6 +114,7 @@ public partial class MainWindow
 
     private async Task ParseServerResponseAsync(string response, bool isFirstChunkOfFile = false)
     {
+        Trace.WriteLine("!!!Response: " + response);
         if (_isTxtFile)
         {
             //add into first item in Answer listbox if it is not empty
@@ -142,7 +147,7 @@ public partial class MainWindow
         }
     }
 
-    
+
     private void DisconnectButton_Click(object sender, RoutedEventArgs e)
     {
         Disconnect();
