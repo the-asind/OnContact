@@ -60,14 +60,35 @@
                     BorderThickness="1.5"
                     Click="SelectFile_OnClick" />
         </StackPanel>
-        <TextBox Name="Answer"
+        <TextBox Name="AnswerTextBox"
                  Grid.Row="3"
+                 Visibility="Visible"
+                 TextWrapping="Wrap"
+                 IsReadOnly="True"
                  MaxWidth="360"
                  Width="360"
                  Height="300"
                  MaxHeight="300"
                  ScrollViewer.VerticalScrollBarVisibility="Auto"
                  ScrollViewer.HorizontalScrollBarVisibility="Auto" />
+        <ListBox Name="AnswerListBox"
+                 Visibility="Collapsed"
+                 ScrollViewer.CanContentScroll="False"
+                 Grid.Row="3"
+                 MaxWidth="360"
+                 Width="360"
+                 Height="300"
+                 MaxHeight="300"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 SelectionChanged="Answer_SelectionChanged">
+
+                <ListBox.ItemTemplate>
+                        <DataTemplate>
+                                <TextBlock Text="{Binding}" TextWrapping="Wrap" />
+                        </DataTemplate>
+                </ListBox.ItemTemplate>
+        </ListBox>
         <StackPanel Orientation="Horizontal"
                     Grid.Row="4" HorizontalAlignment="Center">
                 <TextBlock

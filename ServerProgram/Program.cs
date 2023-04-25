@@ -230,6 +230,7 @@ internal static class Program
             {
                 Console.WriteLine($"Sending chunk of {message}: {bytesRead} bytes");
                 await SendBytesAsync(cancellationToken, client, buffer.AsMemory(0, bytesRead).ToArray());
+                await Delay(10);
             }
         }
 

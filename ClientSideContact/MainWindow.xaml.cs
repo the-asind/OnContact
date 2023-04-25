@@ -7,6 +7,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using FreeClient;
 using Microsoft.Win32;
 using Microsoft.WindowsAPICodePack.Dialogs;
@@ -52,7 +53,7 @@ public partial class MainWindow
             var response = ConvertBytesToString(await _client.ReceiveMessageAsync());
             if (!string.IsNullOrEmpty(response))
             {
-                await ParseServerResponseAsync("Server found. " + response);
+                await ParseServerResponseIntoTextBoxAsync("Server found. " + response);
 
                 //take last five symbols from response into integer
                 var port = Convert.ToInt32(response.Substring(response.Length - 3, 3));
@@ -69,7 +70,7 @@ public partial class MainWindow
         catch (Exception ex)
         {
             Client.HandleException(ex);
-            await ParseServerResponseAsync(ex.Message);
+            await ParseServerResponseIntoTextBoxAsync(ex.Message);
         }
     }
 
@@ -85,32 +86,21 @@ public partial class MainWindow
                 var response = await _client.ReceiveMessageAsync();
                 answer.Append(ConvertBytesToString(response));
                 var answerString = answer.ToString();
-                // if end of file is received
-                if (EndOfFileReceived(response))
-                {
-                    answerString = answerString.Remove(answerString.Length - 9, 9); // delete EndOfFile at the end
 
-                    if (answerString[..4] == "!Txt")
-                    {
-                        answerString = answerString.Remove(0, 4);
-                        _isTxtFile = true;
-                        await ParseServerResponseAsync(answerString, true);
-                    }
-                    else
-                    {
-                        _isTxtFile = false;
-                        await ParseServerResponseAsync(answerString);
-                    }
-
-                    SendButton.IsEnabled = true;
-
-                    offsetOfAnswer = 0;
-                    answer.Clear();
-                    Trace.WriteLine(answerString);
-                }
                 // Check if we parsing txt file
-                else if (answerString[..4] == "!Txt")
+                if (answerString[..4] == "!Txt")
                 {
+                    if (EndOfFileReceived(response))
+                    {
+                        answerString = answerString.Remove(answerString.Length - 9, 9); // delete EndOfFile at the end
+                        await ParseServerResponseIntoTextBoxAsync(
+                            answerString.Substring(offsetOfAnswer, answerString.Length - offsetOfAnswer),
+                            offsetOfAnswer == 0);
+                        SendButton.IsEnabled = true;
+                        _isTxtFile = false;
+                        continue;
+                    }
+
                     // Check if the last symbol of the answerString is broken in UTF-8
                     var endIndex = answerString.Length - 1;
 
@@ -122,21 +112,60 @@ public partial class MainWindow
                         endIndex -= 1;
 
                     // Parse the server response without the last broken symbol and with the offset
-                    await ParseServerResponseAsync(answerString.Substring(offsetOfAnswer, endIndex),
+                    var length = Math.Max(0, endIndex - offsetOfAnswer);
+                    await ParseServerResponseIntoTextBoxAsync(answerString.Substring(offsetOfAnswer, length),
                         offsetOfAnswer == 0);
                     offsetOfAnswer = endIndex;
+                    _isTxtFile = true;
                 }
+                // if end of file is received
+                else if (EndOfFileReceived(response))
+                {
+                    answerString = answerString.Remove(answerString.Length - 9, 9); // delete EndOfFile at the end
+
+                    if (answerString[..4] == "!Txt")
+                    {
+                        answerString = answerString.Remove(0, 4);
+                        _isTxtFile = true;
+                        await ParseServerResponseIntoTextBoxAsync(answerString, true);
+                    }
+                    else
+                    {
+                        _isTxtFile = false;
+                        await ParseServerResponseIntoListBoxAsync(answerString);
+                    }
+
+                    SendButton.IsEnabled = true;
+
+                    offsetOfAnswer = 0;
+                    answer.Clear();
+                    Trace.WriteLine(answerString);
+                }
+
+                await Task.Delay(1);
             }
         }
         catch (Exception ex)
         {
             Client.HandleException(ex);
-            await ParseServerResponseAsync("!The connection is broken.\n" + ex.Message + "\n");
+            await ParseServerResponseIntoTextBoxAsync("!The connection is broken.\n" + ex + "\n");
         }
         finally
         {
             Disconnect();
         }
+    }
+
+    private void EnableAnswerTextBox()
+    {
+        AnswerListBox.Visibility = Visibility.Collapsed;
+        AnswerTextBox.Visibility = Visibility.Visible;
+    }
+
+    private void EnableAnswerListBox()
+    {
+        AnswerTextBox.Visibility = Visibility.Collapsed;
+        AnswerListBox.Visibility = Visibility.Visible;
     }
 
     private async void SendButton_Click(object sender, RoutedEventArgs e)
@@ -155,27 +184,43 @@ public partial class MainWindow
         }
     }
 
-    private Task ParseServerResponseAsync(string response, bool isFirstChunkOfFile = false)
+    //TODO: баг с передачей текстовых файлов друг за другом. они смещаются криво по оффсету и чего ещё по хуже. Видно EndOfFile
+    //TODO: endoffile надо заменить так, чтобы Попов не смог нарочно создать текстовик с кучей EndOfFile и сказать "АГА!"
+    private Task ParseServerResponseIntoTextBoxAsync(string response, bool isFirstChunkOfFile = false)
     {
+        EnableAnswerTextBox();
         Trace.WriteLine("!!!Response: " + response);
         if (_isTxtFile)
             if (isFirstChunkOfFile)
-                Answer.Text = response;
+                AnswerTextBox.Text = response;
             else
-                Answer.Text += response;
+                AnswerTextBox.Text += response;
         else
         {
-            if (response[0] == '!')
-            {
-                Answer.Text = "";
-                // delete first symbol in response
-                response = response.Remove(0, 1);
-            }
-
-            Answer.Text += response;
+            AnswerTextBox.Text = response;
         }
 
         return Task.CompletedTask;
+    }
+
+    private async Task ParseServerResponseIntoListBoxAsync(string response)
+    {
+        EnableAnswerListBox();
+        Trace.WriteLine("!!!Response: " + response);
+        if (response[0] == '!')
+        {
+            AnswerListBox.Items.Clear();
+            // delete first symbol in response
+            response = response.Remove(0, 1);
+        }
+
+        var lines = response.Split(Environment.NewLine);
+
+        foreach (var line in lines)
+        {
+            AnswerListBox.Items.Add(line);
+            await Task.Delay(1); // to allow other code to run while waiting
+        }
     }
 
     private void DisconnectButton_Click(object sender, RoutedEventArgs e)
@@ -187,7 +232,7 @@ public partial class MainWindow
     {
         Title = "On Contact!";
         _client.CloseConnection();
-        ParseServerResponseAsync("Server disconnected.");
+        ParseServerResponseIntoTextBoxAsync("Server disconnected.");
         SendButton.IsEnabled = false;
         ConnectButton.IsEnabled = true;
         DisconnectButton.IsEnabled = false;
@@ -222,15 +267,15 @@ public partial class MainWindow
         if (dialog.ShowDialog() == true) MessageTextBox.Text = dialog.FileName;
     }
 
-    // private void Answer_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    // {
-    //     var selectedItem = Answer.SelectedItem?.ToString();
-    //
-    //     if (selectedItem is { Length: > 1 } && selectedItem[1] == ':')
-    //     {
-    //         // Get the text content of the selected item and add it to the MessageTextBox
-    //         var selectedText = selectedItem;
-    //         MessageTextBox.Text = selectedText;
-    //     }
-    // }
+    private void Answer_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        var selectedItem = AnswerListBox.SelectedItem?.ToString();
+
+        if (selectedItem is { Length: > 1 } && selectedItem[1] == ':')
+        {
+            // Get the text content of the selected item and add it to the MessageTextBox
+            var selectedText = selectedItem;
+            MessageTextBox.Text = selectedText;
+        }
+    }
 }
