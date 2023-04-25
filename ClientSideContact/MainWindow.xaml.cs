@@ -12,6 +12,7 @@ namespace ClientSideContact;
 public partial class MainWindow
 {
     private readonly Client _client;
+    private bool _isTxtFile = false;
     
     public MainWindow()
     {
@@ -60,22 +61,30 @@ public partial class MainWindow
             {
                 var response = await _client.ReceiveMessageAsync();
                 if (!string.IsNullOrEmpty(response))
-                    if (response.Substring(response.Length - 9, 9) == "EndOfFile")
+                    if (response.Substring(0, 4) == "!Txt")
                     {
-                        response = response.Remove(response.Length - 9, 9);
-                        await ParseServerResponseAsync(response);
-                        SendButton.IsEnabled = true;
+                        response = response.Remove(0, 4);
+                        _isTxtFile = true;
+                        await ParseServerResponseAsync(response, true);
                     }
-                    else
-                    {
-                        await ParseServerResponseAsync(response);
-                    }
+
+                if (response.Substring(response.Length - 9, 9) == "EndOfFile")
+                {
+                    response = response.Remove(response.Length - 9, 9);
+                    _isTxtFile = false;
+                    await ParseServerResponseAsync(response);
+                    SendButton.IsEnabled = true;
+                }
+                else
+                {
+                    await ParseServerResponseAsync(response);
+                }
             }
         }
         catch (Exception ex)
         {
             Client.HandleException(ex);
-            await ParseServerResponseAsync("Server unavailable.");
+            await ParseServerResponseAsync("!The connection is broken.");
         }
         finally
         {
@@ -99,21 +108,37 @@ public partial class MainWindow
         }
     }
 
-    private async Task ParseServerResponseAsync(string response)
+    private async Task ParseServerResponseAsync(string response, bool isFirstChunkOfFile = false)
     {
-        if (response[0] == '!')
+        if (_isTxtFile)
         {
-            Answer.Items.Clear();
-            // delete first symbol in response
-            response = response.Remove(0, 1);
+            //add into first item in Answer listbox if it is not empty
+            if (Answer.Items.Count > 1)
+                Answer.Items.Clear();
+
+            if (Answer.Items.Count > 0)
+                if (isFirstChunkOfFile)
+                    Answer.Items[0] = response;
+                else
+                    Answer.Items[0] += response;
+            else Answer.Items.Add(response);
         }
-
-        var lines = response.Split(Environment.NewLine);
-
-        foreach (var line in lines)
+        else //TODO: fix problem with listbox overloading (extra lines in txt format) maybe change into just textbox
         {
-            Answer.Items.Add(line);
-            await Task.Delay(1); // to allow other code to run while waiting
+            if (response[0] == '!')
+            {
+                Answer.Items.Clear();
+                // delete first symbol in response
+                response = response.Remove(0, 1);
+            }
+
+            var lines = response.Split(Environment.NewLine);
+
+            foreach (var line in lines)
+            {
+                Answer.Items.Add(line);
+                await Task.Delay(1); // to allow other code to run while waiting
+            }
         }
     }
 

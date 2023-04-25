@@ -61,17 +61,15 @@
                     Click="SelectFile_OnClick"/>
         </StackPanel>
         <ListBox Name="Answer" 
-                Grid.Row="3"
-                MaxWidth="360"
+                 ScrollViewer.CanContentScroll="True"
+                 Grid.Row="3"        
+                 MaxWidth="360"
                  Width="360"
-                 ScrollViewer.VerticalScrollBarVisibility="Visible"
-                SelectionChanged="Answer_SelectionChanged"
-                ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                <ListBox.ItemsPanel>
-                        <ItemsPanelTemplate>
-                                <StackPanel/>
-                        </ItemsPanelTemplate>
-                </ListBox.ItemsPanel>
+                 Height="300"
+                 MaxHeight="300"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 SelectionChanged="Answer_SelectionChanged"><!-- VirtualizingStackPanel.IsVirtualizing="False" -->
                 <ListBox.ItemTemplate>
                         <DataTemplate>
                                 <TextBlock Text="{Binding}" TextWrapping="Wrap"/>

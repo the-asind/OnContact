@@ -163,8 +163,8 @@ internal static class Program
 
         if (answer is null)
         {
-            Console.WriteLine($"send file or directory {message} does not exist");
-            answer = $"!File or directory {message} does not exist";
+            Console.WriteLine($"send txtfile or directory {message} does not exist"); //todo: maybe implement not only txt files
+            answer = $"! TxtFile or directory {message} does not exist";
         }
 
         if (answer == "")
@@ -198,46 +198,29 @@ internal static class Program
     {
         await using var fileStream = new FileStream(message, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
         using var streamReader = new StreamReader(fileStream);
-        var buffer = new char[65536];
-        var stringBuilder = new StringBuilder();
-        var chunkSize = 1024 * 1024; // chunk size is 1MB
-        
-        long fileSize = streamReader.BaseStream.Length;
-        if (fileSize > chunkSize)
+    
+        var buffer = new char[1024]; // chunk size is 1MB
+        var bytesRead = 0;
+
+        var fileSize = streamReader.BaseStream.Length;
+        if (fileSize > buffer.Length)
         {
-            var answer = $"!Contents of {message}:\n\n";
+            var answer = $"!Txt Contents of {message}:\n\n";
             await SendAsync(cancellationToken, client, answer);
         }
-        while (!streamReader.EndOfStream)
+
+        while ((bytesRead = await streamReader.ReadAsync(buffer, 0, buffer.Length)) > 0)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            //todo: тут в асинке он считывает весь файл а потом обрывает его грязно и с ошибками, исправить
-            var readCount = await streamReader.ReadAsync(buffer, 0, buffer.Length);
-            stringBuilder.Append(buffer, 0, readCount);
 
-            if (stringBuilder.Length >= chunkSize) // Если длина строки больше длины буфера 
-            {
-                var chunk = stringBuilder.ToString(0, chunkSize);
-                stringBuilder.Remove(0, chunkSize);
-                
-                await SendAsync(cancellationToken, client, chunk);
-            }
+            var chunk = new string(buffer, 0, bytesRead);
+            await SendAsync(cancellationToken, client, chunk);
         }
 
-        if (fileSize < chunkSize)
-        {
-            var answer = $"!Contents of {message}:\n\n{stringBuilder}";
-            Console.WriteLine($"sending contents of {message}");
-            await SendAsync(cancellationToken, client, answer);
-        }
-        
         Console.WriteLine("EndOfFile");
         await SendAsync(cancellationToken, client, $"EndOfFile");
     }
-
-
-
-
+    
     private static List<string> GetAllDirectoryEntries(string directoryPath)
     {
         var entries = new List<string>();
