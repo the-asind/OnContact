@@ -4,20 +4,21 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="On Contact!" 
-        Height="700" 
-        Width="400" 
+        Title="On Contact!"
+        Height="700"
+        Width="400"
+        ResizeMode="NoResize"
         WindowStartupLocation="CenterScreen"
         Background="#ccf0ef">
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="40"/>
-            <RowDefinition Height="40"/>
-            <RowDefinition Height="50"/>
-            <RowDefinition Height="310"/>
-            <RowDefinition Height="60"/>
-            <RowDefinition Height="40"/>
-            <RowDefinition Height="80"/>
+                <RowDefinition Height="40" />
+                <RowDefinition Height="40" />
+                <RowDefinition Height="50" />
+                <RowDefinition Height="310" />
+                <RowDefinition Height="60" />
+                <RowDefinition Height="40" />
+                <RowDefinition Height="80" />
         </Grid.RowDefinitions>
         <TextBox x:Name="MessageTextBox"
                  HorizontalAlignment="Center"
@@ -27,9 +28,9 @@
                  FontFamily="Bahnschrift"
                  FontSize="14"
                  Padding="6"
-                 Text="D:\"/>
+                 Text="D:\" />
         <StackPanel Orientation="Horizontal"
-                    Grid.Row="1"  
+                    Grid.Row="1"
                     VerticalAlignment="Top"
                     HorizontalAlignment="Center">
             <Button x:Name="SelectDirectory"
@@ -44,7 +45,7 @@
                     Background="White"
                     BorderBrush="#dfe0e0"
                     BorderThickness="1.5"
-                    Click="SelectFolder_Click"/>
+                    Click="SelectFolder_Click" />
             <Button x:Name="SelectFile"
                     HorizontalAlignment="Right"
                     Height="35"
@@ -57,45 +58,36 @@
                     Background="White"
                     BorderBrush="#dfe0e0"
                     BorderThickness="1.5"
-                    Click="SelectFile_OnClick"/>
+                    Click="SelectFile_OnClick" />
         </StackPanel>
-        <ListBox Name="Answer"
-                 ScrollViewer.CanContentScroll="False"
-                 Grid.Row="3"        
+        <TextBox Name="Answer"
+                 Grid.Row="3"
                  MaxWidth="360"
                  Width="360"
                  Height="300"
                  MaxHeight="300"
                  ScrollViewer.VerticalScrollBarVisibility="Auto"
-                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                 SelectionChanged="Answer_SelectionChanged">
-                
-                <ListBox.ItemTemplate>
-                        <DataTemplate>
-                                <TextBlock Text="{Binding}" TextWrapping="Wrap"/>
-                        </DataTemplate>
-                </ListBox.ItemTemplate>
-        </ListBox>
+                 ScrollViewer.HorizontalScrollBarVisibility="Auto" />
         <StackPanel Orientation="Horizontal"
                     Grid.Row="4" HorizontalAlignment="Center">
-        <TextBlock
-                   TextAlignment="Left"
-                   VerticalAlignment="Center"
-                   Text="IP:" 
-                   Height="36"
-                   FontFamily="Bahnschrift"
-                   Width="40"
-                   FontSize="20"
-                   Foreground="DarkCyan"
-                   Padding="6" />
+                <TextBlock
+                        TextAlignment="Left"
+                        VerticalAlignment="Center"
+                        Text="IP:"
+                        Height="36"
+                        FontFamily="Bahnschrift"
+                        Width="40"
+                        FontSize="20"
+                        Foreground="DarkCyan"
+                        Padding="6" />
 
-        <TextBox x:Name="IpTextBox"
-                 Height="30"
-                 Width="260"
-                 FontFamily="Bahnschrift"
-                 FontSize="14"
-                 Padding="6"
-                 Text="127.255.255.254"/>
+                <TextBox x:Name="IpTextBox"
+                         Height="30"
+                         Width="260"
+                         FontFamily="Bahnschrift"
+                         FontSize="14"
+                         Padding="6"
+                         Text="127.255.255.254" />
         </StackPanel>
         <Button x:Name="SendButton"
                 VerticalAlignment="Top"
@@ -111,12 +103,12 @@
                 Background="White"
                 BorderBrush="#dfe0e0"
                 BorderThickness="1.5"
-                Click="SendButton_Click"/>
-        
+                Click="SendButton_Click" />
+
         <StackPanel Orientation="Horizontal"
                     Grid.Row="5"
                     HorizontalAlignment="Center">
-            
+
             <Button x:Name="ConnectButton"
                     Height="35"
                     Width="150"
@@ -128,7 +120,7 @@
                     Background="White"
                     BorderBrush="#dfe0e0"
                     BorderThickness="1.5"
-                    Click="ConnectButton_Click"/>
+                    Click="ConnectButton_Click" />
             <Button x:Name="DisconnectButton"
                     Height="35"
                     Width="150"
@@ -140,7 +132,7 @@
                     Background="White"
                     BorderBrush="#dfe0e0"
                     BorderThickness="1.5"
-                    Click="DisconnectButton_Click"/>
+                    Click="DisconnectButton_Click" />
         </StackPanel>
         <Button x:Name="Exit"
                 Grid.Row="6"
@@ -153,7 +145,6 @@
                 Background="White"
                 BorderBrush="#dfe0e0"
                 BorderThickness="1.5"
-                Click="Exit_OnClick"/>
+                Click="Exit_OnClick" />
     </Grid>
 </Window>
-

@@ -155,7 +155,8 @@ internal static class Program
                 _ = Run(() => GetTxtContent(cancellationToken, message, client), cancellationToken);
                 return;
             }
-            else if (Directory.Exists(message))
+
+            if (Directory.Exists(message))
                 answer = GetListFiles(message);
         }
         else if (Directory.Exists(message))
@@ -171,12 +172,14 @@ internal static class Program
         if (answer == "")
             answer = "!This directory is empty.";
 
-        await SendAsync(cancellationToken, client, answer);
-        await SendAsync(cancellationToken, client, "EndOfFile");
+        Console.WriteLine(answer);
+        await SendStringAsync(cancellationToken, client, answer);
+        await SendStringAsync(cancellationToken, client, "EndOfFile");
     }
 
-    private static async Task SendAsync(CancellationToken cancellationToken, TcpClient client, string answer)
+    private static async Task SendStringAsync(CancellationToken cancellationToken, TcpClient client, string answer)
     {
+        Console.WriteLine("SENDING: " + answer);
         Debug.Assert(answer != null, nameof(answer) + " != null");
         var data = Encoding.UTF8.GetBytes(answer);
         var offset = 0;
@@ -187,6 +190,21 @@ internal static class Program
             offset += bytesToSend;
         }
     }
+
+    //todo: it seems like not sending chunkly
+    private static async Task SendBytesAsync(CancellationToken cancellationToken, TcpClient client, byte[] data)
+    {
+        Console.WriteLine("SENDING: " + Encoding.UTF8.GetString(data));
+        Debug.Assert(data != null, nameof(data) + " != null");
+        var offset = 0;
+        while (offset < data.Length)
+        {
+            var bytesToSend = Math.Min(1024, data.Length - offset);
+            await client.GetStream().WriteAsync(data.AsMemory(offset, bytesToSend), cancellationToken);
+            offset += bytesToSend;
+        }
+    }
+
 
     private static string GetListFiles(string message)
     {
@@ -203,22 +221,22 @@ internal static class Program
 
     private static async Task GetTxtContent(CancellationToken cancellationToken, string message, TcpClient client)
     {
-        await SendAsync(cancellationToken, client, $"!TxtContent of {message}: ");
+        await SendStringAsync(cancellationToken, client, $"!TxtContent of {message}: \n");
         await using (var fileStream = new FileStream(message, FileMode.Open, FileAccess.Read))
         {
             var buffer = new byte[1024]; // read 1KB at a time
             var bytesRead = 0;
             while ((bytesRead = await fileStream.ReadAsync(buffer, cancellationToken)) > 0)
             {
-                var chunk = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                Console.WriteLine($"Sending chunk of {message}: {chunk}");
-                await SendAsync(cancellationToken, client, chunk);
+                Console.WriteLine($"Sending chunk of {message}: {bytesRead} bytes");
+                await SendBytesAsync(cancellationToken, client, buffer.AsMemory(0, bytesRead).ToArray());
             }
         }
 
         // after sending whole file send EndOfFile
-        await SendAsync(cancellationToken, client, "EndOfFile");
+        await SendStringAsync(cancellationToken, client, "EndOfFile");
     }
+
 
     private static List<string> GetAllDirectoryEntries(string directoryPath)
     {

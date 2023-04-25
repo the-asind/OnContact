@@ -1,10 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
 using FreeClient;
 using Microsoft.Win32;
 using Microsoft.WindowsAPICodePack.Dialogs;
@@ -26,19 +28,35 @@ public partial class MainWindow
         MessageTextBox.IsEnabled = false;
     }
 
+    private static string ConvertBytesToString(byte[] bytes)
+    {
+        return Encoding.UTF8.GetString(bytes);
+    }
+
+    private static bool EndOfFileReceived(IReadOnlyList<byte> data)
+    {
+        var endOfFileBytes = Encoding.UTF8.GetBytes("EndOfFile");
+        if (data.Count < endOfFileBytes.Length)
+            return false; // The data array is shorter than the "EndOfFile" string, so it can't possibly end with it
+
+        var endOfFileStartIndex = data.Count - endOfFileBytes.Length;
+        return !endOfFileBytes.Where((t, i) => data[endOfFileStartIndex + i] != t).Any();
+    }
+
+
     private async void ConnectButton_Click(object sender, RoutedEventArgs e)
     {
         try
         {
             await _client.ConnectAsync(IPAddress.Loopback.ToString());
-            var response = await _client.ReceiveMessageAsync();
+            var response = ConvertBytesToString(await _client.ReceiveMessageAsync());
             if (!string.IsNullOrEmpty(response))
             {
                 await ParseServerResponseAsync("Server found. " + response);
 
                 //take last five symbols from response into integer
                 var port = Convert.ToInt32(response.Substring(response.Length - 3, 3));
-                Title = $"On Contact! Client_{port}";
+                Title = $"On Contact! Client_{port}\n";
                 SendButton.IsEnabled = true;
                 ConnectButton.IsEnabled = false;
                 DisconnectButton.IsEnabled = true;
@@ -55,40 +73,65 @@ public partial class MainWindow
         }
     }
 
+    // earlier here was piecewise sequential loading, but due to a number of byte-by-byte troubles this has become problematic.
     private async Task HandleServerResponseAsync()
     {
         try
         {
+            var answer = new StringBuilder();
+            var offsetOfAnswer = 0;
             while (true)
             {
                 var response = await _client.ReceiveMessageAsync();
-                if (!string.IsNullOrEmpty(response))
-                    if (response[..4] == "!Txt")
+                answer.Append(ConvertBytesToString(response));
+                var answerString = answer.ToString();
+                // if end of file is received
+                if (EndOfFileReceived(response))
+                {
+                    answerString = answerString.Remove(answerString.Length - 9, 9); // delete EndOfFile at the end
+
+                    if (answerString[..4] == "!Txt")
                     {
-                        response = response.Remove(0, 4);
+                        answerString = answerString.Remove(0, 4);
                         _isTxtFile = true;
-                        await ParseServerResponseAsync(response, true);
+                        await ParseServerResponseAsync(answerString, true);
+                    }
+                    else
+                    {
+                        _isTxtFile = false;
+                        await ParseServerResponseAsync(answerString);
                     }
 
-                if (response.Substring(response.Length - 9, 9) == "EndOfFile")
-                {
-                    response = response.Remove(response.Length - 9, 9);
-                    _isTxtFile = false;
-                    await ParseServerResponseAsync(response);
                     SendButton.IsEnabled = true;
-                }
-                else
-                {
-                    await ParseServerResponseAsync(response);
-                }
 
-                await Task.Delay(1); // Wait for 100ms before checking for data again
+                    offsetOfAnswer = 0;
+                    answer.Clear();
+                    Trace.WriteLine(answerString);
+                }
+                // Check if we parsing txt file
+                else if (answerString[..4] == "!Txt")
+                {
+                    // Check if the last symbol of the answerString is broken in UTF-8
+                    var endIndex = answerString.Length - 1;
+
+                    var answerBytes = Encoding.UTF8.GetBytes(answerString);
+                    if (answerBytes.Length > 0 && answerBytes[^1] == 0xEF &&
+                        answerBytes.Length > 2 && answerBytes[^2] == 0xBF &&
+                        answerBytes[^3] == 0xBD)
+                        // Set the offsetOfAnswer to exclude the last broken symbol
+                        endIndex -= 1;
+
+                    // Parse the server response without the last broken symbol and with the offset
+                    await ParseServerResponseAsync(answerString.Substring(offsetOfAnswer, endIndex),
+                        offsetOfAnswer == 0);
+                    offsetOfAnswer = endIndex;
+                }
             }
         }
         catch (Exception ex)
         {
             Client.HandleException(ex);
-            await ParseServerResponseAsync("!The connection is broken.");
+            await ParseServerResponseAsync("!The connection is broken.\n" + ex.Message + "\n");
         }
         finally
         {
@@ -112,41 +155,28 @@ public partial class MainWindow
         }
     }
 
-    private async Task ParseServerResponseAsync(string response, bool isFirstChunkOfFile = false)
+    private Task ParseServerResponseAsync(string response, bool isFirstChunkOfFile = false)
     {
         Trace.WriteLine("!!!Response: " + response);
         if (_isTxtFile)
-        {
-            //add into first item in Answer listbox if it is not empty
-            if (Answer.Items.Count > 1)
-                Answer.Items.Clear();
-
-            if (Answer.Items.Count > 0)
-                if (isFirstChunkOfFile)
-                    Answer.Items[0] = response;
-                else
-                    Answer.Items[0] += response;
-            else Answer.Items.Add(response);
-        }
-        else //TODO: fix problem with listbox overloading (extra lines in txt format) maybe change into just textbox
+            if (isFirstChunkOfFile)
+                Answer.Text = response;
+            else
+                Answer.Text += response;
+        else
         {
             if (response[0] == '!')
             {
-                Answer.Items.Clear();
+                Answer.Text = "";
                 // delete first symbol in response
                 response = response.Remove(0, 1);
             }
 
-            var lines = response.Split(Environment.NewLine);
-
-            foreach (var line in lines)
-            {
-                Answer.Items.Add(line);
-                await Task.Delay(1); // to allow other code to run while waiting
-            }
+            Answer.Text += response;
         }
-    }
 
+        return Task.CompletedTask;
+    }
 
     private void DisconnectButton_Click(object sender, RoutedEventArgs e)
     {
@@ -192,15 +222,15 @@ public partial class MainWindow
         if (dialog.ShowDialog() == true) MessageTextBox.Text = dialog.FileName;
     }
 
-    private void Answer_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        var selectedItem = Answer.SelectedItem?.ToString();
-
-        if (selectedItem is { Length: > 1 } && selectedItem[1] == ':')
-        {
-            // Get the text content of the selected item and add it to the MessageTextBox
-            var selectedText = selectedItem;
-            MessageTextBox.Text = selectedText;
-        }
-    }
+    // private void Answer_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    // {
+    //     var selectedItem = Answer.SelectedItem?.ToString();
+    //
+    //     if (selectedItem is { Length: > 1 } && selectedItem[1] == ':')
+    //     {
+    //         // Get the text content of the selected item and add it to the MessageTextBox
+    //         var selectedText = selectedItem;
+    //         MessageTextBox.Text = selectedText;
+    //     }
+    // }
 }

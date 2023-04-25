@@ -24,24 +24,25 @@ public class Client
         await _client.GetStream().WriteAsync(data);
     }
 
-    public async Task<string> ReceiveMessageAsync()
+    public async Task<byte[]> ReceiveMessageAsync()
     {
         var data = new byte[1024];
-        var response = new StringBuilder();
+        var response = new MemoryStream();
         while (true)
         {
             if (_client.GetStream().DataAvailable)
             {
                 var bytes = await _client.GetStream().ReadAsync(data);
-                response.Append(Encoding.UTF8.GetString(data, 0, bytes));
-                break;
+                await response.WriteAsync(data, 0, bytes);
+                if (!_client.GetStream().DataAvailable) break;
             }
 
-            await Task.Delay(1); // Wait for 100ms before checking for data again
+            await Task.Delay(1); // Wait for 1ms before checking for data again
         }
 
-        return response.ToString();
+        return response.ToArray();
     }
+
 
     public void CloseConnection()
     {
