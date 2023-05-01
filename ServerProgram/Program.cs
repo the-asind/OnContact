@@ -20,22 +20,22 @@ internal static class Program
             };
             listener.Start();
 
-            Console.WriteLine("Server started.");
+            //Console.WriteLine("Server started.");
 
             while (true)
             {
                 var client = await listener.AcceptTcpClientAsync().ConfigureAwait(false);
-                Console.WriteLine("FreeClient connected.");
+                //Console.WriteLine("FreeClient connected.");
 
                 _ = HandleClientAsync(client);
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine(ex.HelpLink);
+            //Console.WriteLine(ex.HelpLink);
         }
 
-        Console.ReadKey();
+        //Console.ReadKey();
     }
 
     private static async Task HandleClientAsync(TcpClient client)
@@ -77,7 +77,7 @@ internal static class Program
         }
         catch (Exception ex)
         {
-            Console.WriteLine(ex.Message);
+            //Console.WriteLine(ex.Message);
         }
         finally
         {
@@ -121,23 +121,23 @@ internal static class Program
             {
                 var bytesRead = await client.GetStream().ReadAsync(buffer, cancellationToken);
                 var message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                Console.Write($"client_{localPort}: ");
-                Console.WriteLine($"Received message: {message}");
+                //Console.Write($"client_{localPort}: ");
+                //Console.WriteLine($"Received message: {message}");
 
                 _ = Run(() => SendAnswer(cancellationToken, message, client), cancellationToken);
 
-                await Delay(10, cancellationToken);
+                await Delay(1, cancellationToken);
             }
         }
         catch (OperationCanceledException)
         {
-            Console.Write($"client_{localPort}: ");
-            Console.WriteLine("Receive messages canceled.");
+            //Console.Write($"client_{localPort}: ");
+            //Console.WriteLine("Receive messages canceled.");
         }
         catch (Exception ex)
         {
-            Console.Write($"client_{localPort}: ");
-            Console.WriteLine(ex.Message);
+            //Console.Write($"client_{localPort}: ");
+            //Console.WriteLine(ex.Message);
         }
         finally
         {
@@ -152,7 +152,7 @@ internal static class Program
         {
             if (File.Exists(message))
             {
-                _ = Run(() => GetTxtContent(cancellationToken, message, client), cancellationToken);
+                _ = Run(() => SendTxtContent(cancellationToken, message, client), cancellationToken);
                 return;
             }
 
@@ -164,22 +164,22 @@ internal static class Program
 
         if (answer is null)
         {
-            Console.WriteLine(
-                $"send txtfile or directory {message} does not exist"); //todo: maybe implement not only txt files
+            //Console.WriteLine($"send txtfile or directory {message} does not exist");
+            //todo: maybe implement not only txt files
             answer = $"! TxtFile or directory {message} does not exist";
         }
 
         if (answer == "")
             answer = "!This directory is empty.";
 
-        Console.WriteLine(answer);
+        //Console.WriteLine(answer);
         await SendStringAsync(cancellationToken, client, answer);
-        await SendStringAsync(cancellationToken, client, "EndOfFile");
+        await SendStringAsync(cancellationToken, client, "End<>File");
     }
 
     private static async Task SendStringAsync(CancellationToken cancellationToken, TcpClient client, string answer)
     {
-        Console.WriteLine("SENDING: " + answer);
+        //Console.WriteLine("SENDING: " + answer);
         Debug.Assert(answer != null, nameof(answer) + " != null");
         var data = Encoding.UTF8.GetBytes(answer);
         var offset = 0;
@@ -194,7 +194,7 @@ internal static class Program
     //todo: it seems like not sending chunkly
     private static async Task SendBytesAsync(CancellationToken cancellationToken, TcpClient client, byte[] data)
     {
-        Console.WriteLine("SENDING: " + Encoding.UTF8.GetString(data));
+        //Console.WriteLine("SENDING: " + Encoding.UTF8.GetString(data));
         Debug.Assert(data != null, nameof(data) + " != null");
         var offset = 0;
         while (offset < data.Length)
@@ -219,23 +219,22 @@ internal static class Program
         return answer;
     }
 
-    private static async Task GetTxtContent(CancellationToken cancellationToken, string message, TcpClient client)
+    private static async Task SendTxtContent(CancellationToken cancellationToken, string message, TcpClient client)
     {
-        await SendStringAsync(cancellationToken, client, $"!TxtContent of {message}: \n");
-        await using (var fileStream = new FileStream(message, FileMode.Open, FileAccess.Read))
+        var fileSizeInBytes = new FileInfo(message).Length;
+        await SendStringAsync(cancellationToken, client, $"!Txt {fileSizeInBytes} Content of {message}: \n");
+        await using var fileStream = new FileStream(message, FileMode.Open, FileAccess.Read);
+        var buffer = new byte[1024]; // read 1KB at a time
+        var bytesRead = 0;
+        while ((bytesRead = await fileStream.ReadAsync(buffer, cancellationToken)) > 0)
         {
-            var buffer = new byte[1024]; // read 1KB at a time
-            var bytesRead = 0;
-            while ((bytesRead = await fileStream.ReadAsync(buffer, cancellationToken)) > 0)
-            {
-                Console.WriteLine($"Sending chunk of {message}: {bytesRead} bytes");
-                await SendBytesAsync(cancellationToken, client, buffer.AsMemory(0, bytesRead).ToArray());
-                await Delay(10);
-            }
+            //Console.WriteLine($"Sending chunk of {message}: {bytesRead} bytes");
+            await SendBytesAsync(cancellationToken, client, buffer.AsMemory(0, bytesRead).ToArray());
+            await Delay(1);
         }
 
         // after sending whole file send EndOfFile
-        await SendStringAsync(cancellationToken, client, "EndOfFile");
+        //await SendStringAsync(cancellationToken, client, "End<>File");
     }
 
 
@@ -250,40 +249,16 @@ internal static class Program
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error retrieving entries from directory {directoryPath}: {ex.Message}");
+            //Console.WriteLine($"Error retrieving entries from directory {directoryPath}: {ex.Message}");
             entries.Add($"!Error retrieving entries from directory {directoryPath}: {ex.Message}");
         }
 
         return entries;
     }
 
-    private static async Task SendMessagesAsync(TcpClient client, CancellationToken cancellationToken)
-    {
-        try
-        {
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                var message = await Console.In.ReadLineAsync();
-                Debug.Assert(message != null, nameof(message) + " != null");
-                var data = Encoding.UTF8.GetBytes(message);
-                await client.GetStream().WriteAsync(data, cancellationToken);
-
-                await Delay(100, cancellationToken);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            Console.WriteLine("Send messages canceled.");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex.Message);
-        }
-    }
-
     private static void CloseConnection(TcpClient client)
     {
         client.Close();
-        Console.WriteLine("FreeClient disconnected.");
+        //Console.WriteLine("FreeClient disconnected.");
     }
 }

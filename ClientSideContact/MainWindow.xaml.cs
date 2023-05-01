@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -36,7 +36,7 @@ public partial class MainWindow
 
     private static bool EndOfFileReceived(IReadOnlyList<byte> data)
     {
-        var endOfFileBytes = Encoding.UTF8.GetBytes("EndOfFile");
+        var endOfFileBytes = Encoding.UTF8.GetBytes("End<>File");
         if (data.Count < endOfFileBytes.Length)
             return false; // The data array is shorter than the "EndOfFile" string, so it can't possibly end with it
 
@@ -49,8 +49,15 @@ public partial class MainWindow
     {
         try
         {
-            await _client.ConnectAsync(IPAddress.Loopback.ToString());
-            var response = ConvertBytesToString(await _client.ReceiveMessageAsync());
+            var ipString = IpTextBox.Text;
+            if (!IPAddress.TryParse(ipString, out var ipAddress))
+            {
+                await ParseServerResponseIntoTextBoxAsync("Invalid IP address.");
+                return;
+            }
+
+            await _client.ConnectAsync(ipAddress.ToString());
+            var response = ConvertBytesToString(await _client.ReceiveMessageAsync(1024));
             if (!string.IsNullOrEmpty(response))
             {
                 await ParseServerResponseIntoTextBoxAsync("Server found. " + response);
@@ -75,74 +82,68 @@ public partial class MainWindow
     }
 
     // earlier here was piecewise sequential loading, but due to a number of byte-by-byte troubles this has become problematic.
+    [SuppressMessage("ReSharper.DPA", "DPA0001: Memory allocation issues")]
     private async Task HandleServerResponseAsync()
     {
         try
         {
-            var answer = new StringBuilder();
+            var answer = Array.Empty<byte>();
             var offsetOfAnswer = 0;
+            var sizeOfFile = 0;
+
             while (true)
             {
-                var response = await _client.ReceiveMessageAsync();
-                answer.Append(ConvertBytesToString(response));
-                var answerString = answer.ToString();
+                //TODO: добавить хавать со стрима по чанкам
+                var response = await _client.ReceiveMessageAsync(1024);
+                // append response to answer
+                answer = answer.Concat(response).ToArray();
+                var answerString = Encoding.UTF8.GetString(answer);
 
-                // Check if we parsing txt file
+                int FindCountOfDigitInInt(int x)
+                {
+                    return 1 + (int)Math.Floor(Math.Log(x, 10));
+                }
+
+                // Check if we are parsing txt file
                 if (answerString[..4] == "!Txt")
                 {
-                    if (EndOfFileReceived(response))
+                    if (!_isTxtFile)
                     {
-                        answerString = answerString.Remove(answerString.Length - 9, 9); // delete EndOfFile at the end
-                        await ParseServerResponseIntoTextBoxAsync(
-                            answerString.Substring(offsetOfAnswer, answerString.Length - offsetOfAnswer),
-                            offsetOfAnswer == 0);
-                        SendButton.IsEnabled = true;
-                        _isTxtFile = false;
+                        // parse next numbers into int sizeOfOfile from 6th symbol until space symbol meet
+                        sizeOfFile = Convert.ToInt32(answerString.Substring(5, answerString.IndexOf(' ', 5) - 5));
+                        //Trace.WriteLine(sizeOfFile);
+
+                        // delete technical symbols: "!Txt(space)<Number>(space)" 
+                        answerString = answerString.Remove(0, 6 + FindCountOfDigitInInt(sizeOfFile));
+                    }
+
+                    var endIndex = GetEndIndex(answerString);
+
+                    if (IsWholeFileReceived(answer, sizeOfFile))
+                    {
+                        await ParseEndOfTxtFile(endIndex, answerString, offsetOfAnswer);
+                        answer = Array.Empty<byte>();
+                        offsetOfAnswer = 0;
                         continue;
                     }
 
-                    // Check if the last symbol of the answerString is broken in UTF-8
-                    var endIndex = answerString.Length - 1;
-
-                    var answerBytes = Encoding.UTF8.GetBytes(answerString);
-                    if (answerBytes.Length > 0 && answerBytes[^1] == 0xEF &&
-                        answerBytes.Length > 2 && answerBytes[^2] == 0xBF &&
-                        answerBytes[^3] == 0xBD)
-                        // Set the offsetOfAnswer to exclude the last broken symbol
-                        endIndex -= 1;
-
-                    // Parse the server response without the last broken symbol and with the offset
-                    var length = Math.Max(0, endIndex - offsetOfAnswer);
-                    await ParseServerResponseIntoTextBoxAsync(answerString.Substring(offsetOfAnswer, length),
-                        offsetOfAnswer == 0);
+                    await ParseTxtChunkWithoutBrokenChar(endIndex, offsetOfAnswer, answerString);
                     offsetOfAnswer = endIndex;
-                    _isTxtFile = true;
                 }
                 // if end of file is received
                 else if (EndOfFileReceived(response))
                 {
                     answerString = answerString.Remove(answerString.Length - 9, 9); // delete EndOfFile at the end
-
-                    if (answerString[..4] == "!Txt")
-                    {
-                        answerString = answerString.Remove(0, 4);
-                        _isTxtFile = true;
-                        await ParseServerResponseIntoTextBoxAsync(answerString, true);
-                    }
-                    else
-                    {
-                        _isTxtFile = false;
-                        await ParseServerResponseIntoListBoxAsync(answerString);
-                    }
-
+                    _isTxtFile = false;
                     SendButton.IsEnabled = true;
+                    await ParseServerResponseIntoListBoxAsync(answerString);
 
                     offsetOfAnswer = 0;
-                    answer.Clear();
-                    Trace.WriteLine(answerString);
+                    answer = Array.Empty<byte>();
+                    //Trace.WriteLine(answerString);
                 }
 
-                await Task.Delay(1);
+                await Task.Delay(100);
             }
         }
         catch (Exception ex)
@@ -154,6 +155,42 @@ public partial class MainWindow
         {
             Disconnect();
         }
+    }
+
+    private static bool IsWholeFileReceived(byte[] file, int sizeOfFile)
+    {
+        return file.Length >= sizeOfFile;
+    }
+
+    private async Task ParseTxtChunkWithoutBrokenChar(int endIndex, int offsetOfAnswer, string answerString)
+    {
+        // Parse the server response without the last broken symbol and with the offset
+        var length = Math.Max(0, endIndex - offsetOfAnswer);
+        await ParseServerResponseIntoTextBoxAsync(answerString.Substring(offsetOfAnswer, length),
+            offsetOfAnswer == 0);
+        _isTxtFile = true;
+    }
+
+    private async Task ParseEndOfTxtFile(int endIndex, string answerString, int offsetOfAnswer)
+    {
+        await ParseTxtChunkWithoutBrokenChar(endIndex, offsetOfAnswer, answerString);
+
+        SendButton.IsEnabled = true;
+        _isTxtFile = false;
+    }
+
+    private static int GetEndIndex(string answerString)
+    {
+        // Check if the last symbol of the answerString is broken in UTF-8
+        var endIndex = answerString.Length - 1;
+
+        var answerBytes = Encoding.UTF8.GetBytes(answerString);
+        if (answerBytes.Length > 0 && answerBytes[^1] == 0xEF &&
+            answerBytes.Length > 2 && answerBytes[^2] == 0xBF &&
+            answerBytes[^3] == 0xBD)
+            // Set the offsetOfAnswer to exclude the last broken symbol
+            endIndex -= 1;
+        return endIndex;
     }
 
     private void EnableAnswerTextBox()
@@ -185,11 +222,12 @@ public partial class MainWindow
     }
 
     //TODO: баг с передачей текстовых файлов друг за другом. они смещаются криво по оффсету и чего ещё по хуже. Видно EndOfFile
-    //TODO: endoffile надо заменить так, чтобы Попов не смог нарочно создать текстовик с кучей EndOfFile и сказать "АГА!"
+    [SuppressMessage("ReSharper.DPA", "DPA0003: Excessive memory allocations in LOH",
+        MessageId = "type: System.String")]
     private Task ParseServerResponseIntoTextBoxAsync(string response, bool isFirstChunkOfFile = false)
     {
         EnableAnswerTextBox();
-        Trace.WriteLine("!!!Response: " + response);
+        //Trace.WriteLine("!!!Response: " + response);
         if (_isTxtFile)
             if (isFirstChunkOfFile)
                 AnswerTextBox.Text = response;
@@ -206,7 +244,7 @@ public partial class MainWindow
     private async Task ParseServerResponseIntoListBoxAsync(string response)
     {
         EnableAnswerListBox();
-        Trace.WriteLine("!!!Response: " + response);
+        //Trace.WriteLine("!!!Response: " + response);
         if (response[0] == '!')
         {
             AnswerListBox.Items.Clear();

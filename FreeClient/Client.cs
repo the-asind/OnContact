@@ -1,4 +1,5 @@
-﻿using System.Net.Sockets;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Net.Sockets;
 using System.Text;
 
 namespace FreeClient;
@@ -24,17 +25,22 @@ public class Client
         await _client.GetStream().WriteAsync(data);
     }
 
-    public async Task<byte[]> ReceiveMessageAsync()
+    [SuppressMessage("ReSharper.DPA", "DPA0001: Memory allocation issues")]
+    public async Task<byte[]> ReceiveMessageAsync(int chunkSize, bool getWholeStream = true)
     {
-        var data = new byte[1024];
+        //TODO: Проверить правильность получения данных
+        var data = new byte[chunkSize];
         var response = new MemoryStream();
         while (true)
         {
             if (_client.GetStream().DataAvailable)
             {
                 var bytes = await _client.GetStream().ReadAsync(data);
-                await response.WriteAsync(data, 0, bytes);
-                if (!_client.GetStream().DataAvailable) break;
+                await response.WriteAsync(data.AsMemory(0, bytes));
+                if (getWholeStream)
+                    if (!_client.GetStream().DataAvailable) break;
+                    else
+                        break;
             }
 
             await Task.Delay(1); // Wait for 1ms before checking for data again

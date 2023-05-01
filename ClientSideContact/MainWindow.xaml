@@ -108,7 +108,7 @@
                          FontFamily="Bahnschrift"
                          FontSize="14"
                          Padding="6"
-                         Text="127.255.255.254" />
+                         Text="127.0.0.1" />
         </StackPanel>
         <Button x:Name="SendButton"
                 VerticalAlignment="Top"
