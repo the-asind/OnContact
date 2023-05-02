@@ -43,7 +43,7 @@ public class Client
                         break;
             }
 
-            await Task.Delay(1); // Wait for 1ms before checking for data again
+            await Task.Delay(10); // Wait for 1ms before checking for data again
         }
 
         return response.ToArray();

@@ -126,7 +126,7 @@ internal static class Program
 
                 _ = Run(() => SendAnswer(cancellationToken, message, client), cancellationToken);
 
-                await Delay(1, cancellationToken);
+                await Delay(50);
             }
         }
         catch (OperationCanceledException)

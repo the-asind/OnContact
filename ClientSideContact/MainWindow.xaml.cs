@@ -91,6 +91,11 @@ public partial class MainWindow
             var offsetOfAnswer = 0;
             var sizeOfFile = 0;
 
+            int FindCountOfDigitInInt(int x)
+            {
+                return 1 + (int)Math.Floor(Math.Log(x, 10));
+            }
+
             while (true)
             {
                 //TODO: добавить хавать со стрима по чанкам
@@ -98,11 +103,6 @@ public partial class MainWindow
                 // append response to answer
                 answer = answer.Concat(response).ToArray();
                 var answerString = Encoding.UTF8.GetString(answer);
-
-                int FindCountOfDigitInInt(int x)
-                {
-                    return 1 + (int)Math.Floor(Math.Log(x, 10));
-                }
 
                 // Check if we are parsing txt file
                 if (answerString[..4] == "!Txt")
@@ -131,7 +131,7 @@ public partial class MainWindow
                     offsetOfAnswer = endIndex;
                 }
                 // if end of file is received
-                else if (EndOfFileReceived(response))
+                else if (EndOfFileReceived(answer))
                 {
                     answerString = answerString.Remove(answerString.Length - 9, 9); // delete EndOfFile at the end
                     _isTxtFile = false;
@@ -143,7 +143,7 @@ public partial class MainWindow
                     //Trace.WriteLine(answerString);
                 }
 
-                await Task.Delay(100);
+                await Task.Delay(10);
             }
         }
         catch (Exception ex)
