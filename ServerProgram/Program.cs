@@ -191,7 +191,6 @@ internal static class Program
         }
     }
 
-    //todo: it seems like not sending chunkly
     private static async Task SendBytesAsync(CancellationToken cancellationToken, TcpClient client, byte[] data)
     {
         //Console.WriteLine("SENDING: " + Encoding.UTF8.GetString(data));

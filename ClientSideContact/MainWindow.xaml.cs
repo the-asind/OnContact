@@ -90,6 +90,7 @@ public partial class MainWindow
             var answer = Array.Empty<byte>();
             var offsetOfAnswer = 0;
             var sizeOfFile = 0;
+            var delayCounter = 50;
 
             int FindCountOfDigitInInt(int x)
             {
@@ -98,11 +99,12 @@ public partial class MainWindow
 
             while (true)
             {
-                //TODO: добавить хавать со стрима по чанкам
+                //TODO: add reading from the stream on a chunk-by-chunk basis, not with a delay
                 var response = await _client.ReceiveMessageAsync(1024);
                 // append response to answer
                 answer = answer.Concat(response).ToArray();
                 var answerString = Encoding.UTF8.GetString(answer);
+                delayCounter *= (int)1.3;
 
                 // Check if we are parsing txt file
                 if (answerString[..4] == "!Txt")
@@ -124,6 +126,7 @@ public partial class MainWindow
                         await ParseEndOfTxtFile(endIndex, answerString, offsetOfAnswer);
                         answer = Array.Empty<byte>();
                         offsetOfAnswer = 0;
+                        delayCounter = 50;
                         continue;
                     }
 
@@ -140,10 +143,11 @@ public partial class MainWindow
 
                     offsetOfAnswer = 0;
                     answer = Array.Empty<byte>();
+                    delayCounter = 50;
                     //Trace.WriteLine(answerString);
                 }
 
-                await Task.Delay(10);
+                await Task.Delay(delayCounter);
             }
         }
         catch (Exception ex)
@@ -221,7 +225,6 @@ public partial class MainWindow
         }
     }
 
-    //TODO: баг с передачей текстовых файлов друг за другом. они смещаются криво по оффсету и чего ещё по хуже. Видно EndOfFile
     [SuppressMessage("ReSharper.DPA", "DPA0003: Excessive memory allocations in LOH",
         MessageId = "type: System.String")]
     private Task ParseServerResponseIntoTextBoxAsync(string response, bool isFirstChunkOfFile = false)
@@ -315,5 +318,16 @@ public partial class MainWindow
             var selectedText = selectedItem;
             MessageTextBox.Text = selectedText;
         }
+    }
+
+    private void GoUpDirectoryButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        // Go up one directory in MessageTextBox.Text (delete everything after the last '/' or '\')
+        var index = MessageTextBox.Text.LastIndexOf('\\');
+        if (index == -1)
+            index = MessageTextBox.Text.LastIndexOf('/');
+
+        if (index != -1)
+            MessageTextBox.Text = MessageTextBox.Text[..(index + 1)];
     }
 }

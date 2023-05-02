@@ -28,7 +28,7 @@ public class Client
     [SuppressMessage("ReSharper.DPA", "DPA0001: Memory allocation issues")]
     public async Task<byte[]> ReceiveMessageAsync(int chunkSize, bool getWholeStream = true)
     {
-        //TODO: Проверить правильность получения данных
+        //Check if the data is received correctly - TCP confirming the data is received correctly
         var data = new byte[chunkSize];
         var response = new MemoryStream();
         while (true)
@@ -43,7 +43,7 @@ public class Client
                         break;
             }
 
-            await Task.Delay(10); // Wait for 1ms before checking for data again
+            await Task.Delay(50); // Wait for 1ms before checking for data again
         }
 
         return response.ToArray();
